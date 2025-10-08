@@ -1,0 +1,4 @@
+float32 motor1_speed
+bool motor1_direction
+float32 motor2_speed
+bool motor2_direction
