@@ -1,48 +1,87 @@
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
 import serial
 import time
 
-# Update the serial port name and baud rate
-ser = serial.Serial('COM4', 115200, timeout=1)
+class SerialCommunicator(Node):
+    def __init__(self):
+        # Initialize right encoder publisher
+        super().__init__('right_encoder_publisher')
+        self.r_encoder_pub = self.create_publisher(String, 'r_encoder', 10)
 
-def read_serial_data():
-    while True:
-        if ser.in_waiting > 0:
-            line = ser.readline().decode('utf-8').strip()
-            # print(line[0:2])
-            # Split string by ; in case multiple lines merged into one
-            data = line.split(";")
+        # Initialize left encoder publisher
+        super().__init__('left_encoder_publisher')
+        self.l_encoder_pub = self.create_publisher(String, 'l_encoder', 10)
 
-            # Iterate through data recieved in the line that was read
-            for part in data:
-                if part[0:2] == "S*":
-                    # String justification & stripping
-                    string_data = part
-                    string_data = string_data.lstrip("S*encoder")
-                    string_data = string_data.split(",")
-                    # print(string_data)
+        # Initialize imu publisher
+        super().__init__('imu_publisher')
+        self.imu_pub = self.create_publisher(String, 'imu', 10)
 
-                    # Entry of data points into topics
-                    for val in string_data:
-                        # print(val.strip())
-                        if val.strip("1234567890. ") == "r:":
-                            trueVal = val.strip("r: ")
-                            # print(trueVal)
-                        elif val.strip("1234567890. ") == "l:":
-                            trueVal = val.strip("l: ")
-                            # print(trueVal)
-                        elif val.strip("1234567890. ") == "imu:":
-                            trueVal = val.strip("imu: ")
-                            # print(trueVal)
-        time.sleep(0.1)
+        # Initialize the serial port
+        # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
+        self.ser = serial.Serial('COM4', 115200, timeout=1)
+        self.port_open= True
 
-if __name__ == "__main__":
+        # Initialize timer
+        timer_period = 0.01  # seconds
+        self.timer = self.create_timer(timer_period, self.read_serial_data)
+
+    def read_serial_data(self):
+        try:
+            if (self.ser.in_waiting > 0 and self.port_open):
+                line = self.ser.readline().decode('utf-8').strip()
+                # Split string by ; in case multiple lines merged into one
+                data = line.split(";")
+
+                # Iterate through data recieved in the line that was read
+                for part in data:
+                    if part[0:2] == "S*":
+                        # String justification & stripping
+                        string_data = part
+                        string_data = string_data.lstrip("S*encoder")
+                        string_data = string_data.split(",")
+
+                        # Entry of data points into topics
+                        for val in string_data:
+                            # ROS string
+                            trueVal = String()
+                            
+                            if val.strip("1234567890. ") == "r:":
+                                trueVal.data = val.strip("r: ")
+                                self.r_encoder_pub.publish(trueVal)
+                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
+
+                            elif val.strip("1234567890. ") == "l:":
+                                trueVal.data = val.strip("l: ")
+                                self.l_encoder_pub.publish(trueVal)
+                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
+
+                            elif val.strip("1234567890. ") == "imu:":
+                                trueVal.data = val.strip("imu: ")
+                                self.imu_pub.publish(trueVal)
+                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
+
+            time.sleep(0.01)
+        except serial.SerialException as e:
+            self.get_logger().info("Error: %s" % e)
+            self.port_open = False
+
+    def destroy_node(self):
+        self.ser.close()
+        super().destroy_node()
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SerialCommunicator()
+
     try:
-        print(f"Reading from serial port {ser.port}...")
-        read_serial_data()
-    except serial.SerialException as e:
-        print(f"Error: {e}")
+        rclpy.spin(node)
     except KeyboardInterrupt:
-        print("Program terminated by user.")
+        node.get_logger().info("Shutting down serial communications.")
     finally:
-        ser.close()
-        print("Serial port closed.")
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

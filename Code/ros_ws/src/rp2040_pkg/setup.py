@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'rp2040_node = rp2040_pkg.rp2040_node:main'
         ],
     },
 )
