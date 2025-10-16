@@ -20,14 +20,17 @@ class SerialCommunicator(Node):
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
-        self.ser = serial.Serial('COM4', 115200, timeout=1)
+        self.ser = serial.Serial('/dev/ttyAMA10', 115200, timeout=1)
         self.port_open= True
 
         # Initialize timer
         timer_period = 0.01  # seconds
         self.timer = self.create_timer(timer_period, self.read_serial_data)
+        
+        self.get_logger().info("Done initializing")
 
     def read_serial_data(self):
+        self.get_logger().info("Trying to read serial")
         try:
             if (self.ser.in_waiting > 0 and self.port_open):
                 line = self.ser.readline().decode('utf-8').strip()
@@ -46,7 +49,7 @@ class SerialCommunicator(Node):
                         for val in string_data:
                             # ROS string
                             trueVal = String()
-                            
+                            self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
                             if val.strip("1234567890. ") == "r:":
                                 trueVal.data = val.strip("r: ")
                                 self.r_encoder_pub.publish(trueVal)
@@ -74,8 +77,9 @@ class SerialCommunicator(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = SerialCommunicator()
-
+    node.get_logger().info("starting")
     try:
+        node.get_logger().info("spinnnnnnn")
         rclpy.spin(node)
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down serial communications.")
