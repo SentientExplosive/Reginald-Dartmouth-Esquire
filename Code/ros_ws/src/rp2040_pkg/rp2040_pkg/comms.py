@@ -20,7 +20,7 @@ class SerialCommunicator(Node):
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
-        self.ser = serial.Serial('/dev/ttyAMA10', 115200, timeout=1)
+        self.ser = serial.Serial('/dev/bus/usb/004/008', 115200, timeout=1)
         self.port_open= True
 
         # Initialize timer
