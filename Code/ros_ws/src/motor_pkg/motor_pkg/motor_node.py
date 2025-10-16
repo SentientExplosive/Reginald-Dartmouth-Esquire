@@ -29,11 +29,10 @@ class DualMotorController(Node):
 
     def motor_command_callback(self, msg):
         # Motor 1
-        self.pwm_pin_motor1.value = msg.linear.x
-        direction_motor1 = True
+        self.pwm_pin_motor1.value = abs(msg.linear.x)
 
         # direction_motor1 = msg.motor1_direction
-        self.get_logger().info(f"Motor 1 Command: Speed={self.pwm_pin_motor1.value}")
+        self.get_logger().info(f"\nMotor 1 Command: Speed={self.pwm_pin_motor1.value}\nMotor 2 Command: Speed={self.pwm_pin_motor2.value}")
 
         # Clamp motor 1 speed
         self.pwm_pin_motor1.value = max(min(self.pwm_pin_motor1.value, 1.0), -1.0)
@@ -41,17 +40,13 @@ class DualMotorController(Node):
         self.pwm_pin_motor1.on()
         self.motor1slp.on()
         
-        if direction_motor1:
+        if msg.linear.x > 0:
             self.dir_pin_motor1.on()  # Forward
         else:
             self.dir_pin_motor1.off()  # Reverse
-        self.pwm_pin_motor1.value = abs(self.pwm_pin_motor1.value)
 
         # Motor 2
-        self.pwm_pin_motor2.value = msg.linear.x
-        direction_motor2 = True
-        # direction_motor2 = msg.motor2_direction
-        self.get_logger().info(f"Motor 2 Command: Speed={self.pwm_pin_motor2.value}")
+        self.pwm_pin_motor2.value = abs(msg.linear.z)
 
         # Clamp motor 2 speed
         self.pwm_pin_motor2.value = max(min(self.pwm_pin_motor2.value, 1.0), -1.0)
@@ -59,11 +54,10 @@ class DualMotorController(Node):
         self.pwm_pin_motor2.on()
         self.motor2slp.on()
         
-        if direction_motor2:
+        if msg.linear.z > 0:
             self.dir_pin_motor2.on()  # Forward
         else:
             self.dir_pin_motor2.off()  # Reverse
-        self.pwm_pin_motor2.value = abs(self.pwm_pin_motor2.value)
 
     def destroy_node(self):
         self.pwm_pin_motor1.close()
