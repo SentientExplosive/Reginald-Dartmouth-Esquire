@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_msgs.msg import Int64
 import serial
 import time
 
@@ -8,26 +9,29 @@ class SerialCommunicator(Node):
     def __init__(self):
         # Initialize right encoder publisher
         super().__init__('right_encoder_publisher')
-        self.r_encoder_pub = self.create_publisher(String, 'r_encoder', 10)
+        self.r_encoder_pub = self.create_publisher(Int64, 'r_encoder', 10)
 
         # Initialize left encoder publisher
         super().__init__('left_encoder_publisher')
-        self.l_encoder_pub = self.create_publisher(String, 'l_encoder', 10)
+        self.l_encoder_pub = self.create_publisher(Int64, 'l_encoder', 10)
 
         # Initialize imu publisher
         super().__init__('imu_publisher')
-        self.imu_pub = self.create_publisher(String, 'imu', 10)
+        self.imu_pub = self.create_publisher(Int64, 'imu', 10)
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
-        self.ser = serial.Serial('COM4', 115200, timeout=1)
+        self.ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
         self.port_open= True
 
         # Initialize timer
         timer_period = 0.01  # seconds
         self.timer = self.create_timer(timer_period, self.read_serial_data)
+        
+        self.get_logger().info("Done initializing")
 
     def read_serial_data(self):
+#         self.get_logger().info("Trying to read serial")
         try:
             if (self.ser.in_waiting > 0 and self.port_open):
                 line = self.ser.readline().decode('utf-8').strip()
@@ -45,22 +49,31 @@ class SerialCommunicator(Node):
                         # Entry of data points into topics
                         for val in string_data:
                             # ROS string
-                            trueVal = String()
-                            
+                            trueVal = Int64()
+#                             self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
                             if val.strip("1234567890. ") == "r:":
-                                trueVal.data = val.strip("r: ")
-                                self.r_encoder_pub.publish(trueVal)
-                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
+                                try:
+                                    trueVal.data = int(val.strip("r: "))
+                                    self.r_encoder_pub.publish(trueVal)
+                                    self.get_logger().info('Publishing: "%s" to r_encoder' % trueVal.data)
+                                except:
+                                    self.get_logger().info('Value Issue: "%s" not int' % val.strip("r: "))
 
                             elif val.strip("1234567890. ") == "l:":
-                                trueVal.data = val.strip("l: ")
-                                self.l_encoder_pub.publish(trueVal)
-                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
-
+                                try:
+                                    trueVal.data = int(val.strip("l: "))
+                                    self.l_encoder_pub.publish(trueVal)
+                                    self.get_logger().info('Publishing: "%s" to l_encoder' % trueVal.data)
+                                except:
+                                    self.get_logger().info('Value Issue: "%s" not int' % val.strip("l: "))
+                                    
                             elif val.strip("1234567890. ") == "imu:":
-                                trueVal.data = val.strip("imu: ")
-                                self.imu_pub.publish(trueVal)
-                                self.get_logger().info('Publishing: "%s"' % trueVal.data)
+                                try:
+                                    trueVal.data = int(val.strip("imu: "))
+                                    self.imu_pub.publish(trueVal)
+                                    self.get_logger().info('Publishing: "%s" to imu' % trueVal.data)
+                                except:
+                                    self.get_logger().info('Value Issue: "%s" not int' % val.strip("imu: "))
 
             time.sleep(0.01)
         except serial.SerialException as e:
@@ -74,8 +87,9 @@ class SerialCommunicator(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = SerialCommunicator()
-
+#     node.get_logger().info("starting")
     try:
+#         node.get_logger().info("spinnnnnnn")
         rclpy.spin(node)
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down serial communications.")

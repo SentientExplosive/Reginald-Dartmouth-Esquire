@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'navi = nav_pkg.nav_node:main'
         ],
     },
 )
