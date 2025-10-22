@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int64
+from std_msgs.msg import Float32
 import serial
 import time
 
@@ -17,7 +18,7 @@ class SerialCommunicator(Node):
 
         # Initialize imu publisher
         super().__init__('imu_publisher')
-        self.imu_pub = self.create_publisher(Int64, 'imu', 10)
+        self.imu_pub = self.create_publisher(Float32, 'imu', 10)
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
@@ -50,6 +51,7 @@ class SerialCommunicator(Node):
                         for val in string_data:
                             # ROS string
                             trueVal = Int64()
+                            trueValF = Float32()
 #                             self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
                             if val.strip("1234567890. ") == "r:":
                                 try:
@@ -69,11 +71,11 @@ class SerialCommunicator(Node):
                                     
                             elif val.strip("1234567890. ") == "imu:":
                                 try:
-                                    trueVal.data = int(val.strip("imu: "))
-                                    self.imu_pub.publish(trueVal)
-                                    self.get_logger().info('Publishing: "%s" to imu' % trueVal.data)
+                                    trueValF.data = float(val.strip("imu: "))
+                                    self.imu_pub.publish(trueValF)
+                                    self.get_logger().info('Publishing: "%s" to imu' % trueValF.data)
                                 except:
-                                    self.get_logger().info('Value Issue: "%s" not int' % val.strip("imu: "))
+                                    self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
 
             time.sleep(0.01)
         except serial.SerialException as e:
