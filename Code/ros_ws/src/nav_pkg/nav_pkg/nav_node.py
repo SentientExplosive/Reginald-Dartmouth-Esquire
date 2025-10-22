@@ -2,7 +2,8 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int64
-from tf2 import tf_transformations
+from std_msgs.msg import Float32
+import tf_transformations
 
 import math
 import time
@@ -64,18 +65,19 @@ class NaviConverter(Node):
         #Subscriber to encoders + IMU
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
-        self.navi_imu_ = self.create_subscription(Int64, 'imu', self.imu_callback, 10)
+        self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
         
         # Goal
         self.target_distance = 0.0    # meters
         self.target_heading = 0.0     # radians
         
         self.ticks_per_meter = 12022
-        self.error_range = 25/self.ticks_per_meter
+        self.error_range = float(25/self.ticks_per_meter)
+        self.angle_error_range = 0.2
         
         #PID Controllers
         self.linear_pid = Piddles(0.5, 0.0, 0.1, name='linear', range=0)
-        self.angular_pid = Piddles(1.0, 0.0, 0.2, name='angular')
+        self.angular_pid = Piddles(0.25, 0.0, 0.05, name='angular')
         
         # Initial encoder values when executing an instruction
         self.l_start_encoderval = 0.0
@@ -96,8 +98,6 @@ class NaviConverter(Node):
         self.turn = False
         self.generate_instructions()
         
-        self.get_logger().info(f"Target Encoder Value: {self.target_distance*self.ticks_per_meter}")
-    
     def generate_instructions(self):
         # Converts the waypoints into a list of instructions
         self.curr_instruction = 0
@@ -116,9 +116,13 @@ class NaviConverter(Node):
         self.get_logger().info(f"Current Instruction: {i}")
         if i[0] == "d":
             self.target_distance = float(i.strip("d"))
+            self.move_dist = True
+            self.turn = False
         elif i[0] == "t":
             self.target_distance = 0
             self.target_heading = float(i.strip("t"))
+            self.turn = True
+            self.move_dist = False
         
         # Set starting encoder values
         self.l_start_encoderval = self.encoder_left
@@ -126,6 +130,9 @@ class NaviConverter(Node):
         
         # Increment instruction counter
         self.curr_instruction += 1
+        
+        self.get_logger().info(f"Target Encoder Value: {self.target_distance*self.ticks_per_meter}")
+        self.get_logger().info(f"Target Angle Value: {self.target_heading}")
     
     def encoder_left_callback(self, msg):
         self.encoder_left = msg.data
@@ -136,7 +143,7 @@ class NaviConverter(Node):
         self.update_control()
 
     def imu_callback(self, msg):
-        self.yaw = self.quaternion_to_yaw(msg.orientation)
+        self.yaw = msg.data
         self.update_control()
 
     def update_control(self):
@@ -149,26 +156,44 @@ class NaviConverter(Node):
             cmd.linear.x = 0.0
             cmd.linear.z = 0.0
             self.navi_pub_.publish(cmd)
+            time.sleep(0.5)
             self.execute_next_instruction()
+            time.sleep(0.5)
             self.done = False
         
         avg_ticks = ((self.encoder_left-self.l_start_encoderval) + (self.encoder_right-self.r_start_encoderval)) / 2.0
         distance_m = avg_ticks / self.ticks_per_meter
         distance_error = self.target_distance - distance_m
         heading_error = self.normalize_angle(self.target_heading - self.yaw)
+        angle_error = (self.target_heading - self.yaw)
+        
+        self.get_logger().info(f"Angle error: {angle_error}")
+        self.get_logger().info(f"Distance error: {distance_error}")
+        
 
-        if abs(distance_error) < self.error_range:
-            motor1_speed = 0
-            motor2_speed = 0
+        motor1_speed = 0.0
+        motor2_speed = 0.0
+
+        if ((abs(distance_error) < self.error_range) and self.move_dist):
+            motor1_speed = 0.0
+            motor2_speed = 0.0
             self.done = True
+            self.turn = False
+            self.move_dist = False
+        if ((abs(angle_error) < self.angle_error_range) and self.turn):
+            motor1_speed = 0.0
+            motor2_speed = 0.0
+            self.done = True
+            self.turn = False
+            self.move_dist = False
         else:
             linear_output = self.linear_pid.compute(distance_error)
-            angular_output = self.angular_pid.compute(heading_error)
+            angular_output = self.angular_pid.compute(angle_error)
 
             # Convert to left and right motor speeds
             if (self.move_dist):
-                motor1_speed = linear_output - angular_output
-                motor2_speed = linear_output + angular_output
+                motor1_speed = linear_output - angular_output * 0.05
+                motor2_speed = linear_output + angular_output * 0.05
             elif (self.turn):
                 motor1_speed = -angular_output
                 motor2_speed = angular_output 
@@ -185,10 +210,10 @@ class NaviConverter(Node):
 
         self.get_logger().info(f"Right: {motor1_speed:.2f} | Left: {motor2_speed:.2f}")
         
-    def quaternion_to_yaw(self, orientation):
-        q = [orientation.x, orientation.y, orientation.z, orientation.w]
-        _, _, yaw = tf_transformations.euler_from_quaternion(q)
-        return yaw
+#     def quaternion_to_yaw(self, orientation):
+#         q = [orientation.x, orientation.y, orientation.z, orientation.w]
+#         _, _, yaw = tf_transformations.euler_from_quaternion(q)
+#         return yaw
     
     def normalize_angle(self, angle):
         return math.atan2(math.sin(angle), math.cos(angle))
