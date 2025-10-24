@@ -105,12 +105,29 @@ class NaviConverter(Node):
         self.generate_instructions()
         
     def generate_instructions(self):
+        # Vector values to find the correct direction and distance required to go back to the start
+        vector_vals = []
+        
         # Converts the waypoints into a list of instructions
         self.curr_instruction = 0
         for waypoint in self.waypoints:
             self.instructions.append(f"t{waypoint[0]}")
             self.instructions.append(f"d{waypoint[1]}")
+            x = waypoint[1] * math.cos(waypoint[0])
+            y = waypoint[1] * math.sin(waypoint[0])
+            vector_vals.append((x,y))
         
+        # Calculate resultant vector
+        total_x = 0
+        total_y = 0
+        for vec in vector_vals:
+            total_x += vec[0]
+            total_y += vec[1]
+        angle = math.atan(total_y/total_x)
+        dist = math.sqrt((total_x)**2 + (total_y)**2)
+        self.instructions.append(f"t{angle}")
+        self.instructions.append(f"d{dist}")
+
         self.get_logger().info(f"Instructions: {self.instructions}")
         
         # Load in first instruction
