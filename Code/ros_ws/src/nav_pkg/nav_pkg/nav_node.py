@@ -113,8 +113,8 @@ class NaviConverter(Node):
         for waypoint in self.waypoints:
             self.instructions.append(f"t{waypoint[0]}")
             self.instructions.append(f"d{waypoint[1]}")
-            x = waypoint[1] * math.cos(waypoint[0])
-            y = waypoint[1] * math.sin(waypoint[0])
+            x = waypoint[1] * math.cos((waypoint[0])*math.pi/180)
+            y = waypoint[1] * math.sin(waypoint[0]*math.pi/180)
             self.get_logger().info(f"y: {y}")
             self.get_logger().info(f"x: {x}")
             vector_vals.append((x,y))
