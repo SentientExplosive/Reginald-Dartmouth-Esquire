@@ -9,12 +9,13 @@ import math
 import time
 
 class Piddles():
-    def __init__(self, kp, ki, kd, name='pid', range=0):
+    def __init__(self, kp, ki, kd, name='pid', mod = 1, range=0):
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.name = name
         self.error_range = range
+        self.modifier = mod
         
         self.prev_error = 0.0
         self.integral = 0.0
@@ -52,7 +53,7 @@ class Piddles():
 
             self.prev_error = error
 
-        output = p + i + d
+        output = float((p + i + d)*self.modifier)
         return output
     
 class NaviConverter(Node):
@@ -67,17 +68,22 @@ class NaviConverter(Node):
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
         
+        # Timer for updating the control
+        self.timer_period = 0.04
+        self.timer = self.create_timer(self.timer_period, self.update_control)
+        
         # Goal
         self.target_distance = 0.0    # meters
         self.target_heading = 0.0     # radians
         
         self.ticks_per_meter = 12022
-        self.error_range = float(25/self.ticks_per_meter)
-        self.angle_error_range = 0.2
+        self.error_range = 250
+        self.angle_error_range = 1
         
         #PID Controllers
-        self.linear_pid = Piddles(0.5, 0.0, 0.1, name='linear', range=0)
-        self.angular_pid = Piddles(0.25, 0.0, 0.05, name='angular')
+        self.l_linear_pid = Piddles(0.25, 0.0, 0.05, name='l_linear', mod = 0.001)
+        self.r_linear_pid = Piddles(0.25, 0.0, 0.05, name='r_linear', mod = 0.001)
+        self.angular_pid = Piddles(1, 0.0, 0.25, name='angular', mod = 0.04)
         
         # Initial encoder values when executing an instruction
         self.l_start_encoderval = 0.0
@@ -89,7 +95,7 @@ class NaviConverter(Node):
         self.yaw = 0.0
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(50,1),(270,2.5),(45,-0.5)]
+        self.waypoints = [(50,1),(270,1),(180,-0.5)]
         self.instructions = []
         self.curr_instruction = 0
         
@@ -112,39 +118,47 @@ class NaviConverter(Node):
     
     def execute_next_instruction(self):
         # Gets the next instruction in the list
-        i = self.instructions[self.curr_instruction]
-        self.get_logger().info(f"Current Instruction: {i}")
-        if i[0] == "d":
-            self.target_distance = float(i.strip("d"))
-            self.move_dist = True
+        if (self.curr_instruction <= len(self.instructions)-1):
+            i = self.instructions[self.curr_instruction]
+            self.done = False
+            
+            self.get_logger().info(f"Current Instruction: {i}")
+            if i[0] == "d":
+                self.target_distance = float(i.strip("d")) * self.ticks_per_meter
+                self.move_dist = True
+                self.turn = False
+            elif i[0] == "t":
+                self.target_distance = 0
+                self.target_heading = float(i.strip("t"))
+                self.turn = True
+                self.move_dist = False
+            
+            # Set starting encoder values
+            self.l_start_encoderval = self.encoder_left
+            self.r_start_encoderval = self.encoder_right
+            
+            # Increment instruction counter
+            self.curr_instruction += 1
+            
+            self.get_logger().info(f"Target Encoder Value: {self.target_distance}")#*self.ticks_per_meter}")
+            self.get_logger().info(f"Target Angle Value: {self.target_heading}")
+        else:
+            self.get_logger().info(f"We're done yippeee")
+            self.done = True
             self.turn = False
-        elif i[0] == "t":
-            self.target_distance = 0
-            self.target_heading = float(i.strip("t"))
-            self.turn = True
             self.move_dist = False
-        
-        # Set starting encoder values
-        self.l_start_encoderval = self.encoder_left
-        self.r_start_encoderval = self.encoder_right
-        
-        # Increment instruction counter
-        self.curr_instruction += 1
-        
-        self.get_logger().info(f"Target Encoder Value: {self.target_distance*self.ticks_per_meter}")
-        self.get_logger().info(f"Target Angle Value: {self.target_heading}")
     
     def encoder_left_callback(self, msg):
         self.encoder_left = msg.data
-        self.update_control()
+#         self.update_control()
 
     def encoder_right_callback(self, msg):
         self.encoder_right = msg.data
-        self.update_control()
+#         self.update_control()
 
     def imu_callback(self, msg):
         self.yaw = msg.data
-        self.update_control()
+#         self.update_control()
 
     def update_control(self):
         if self.yaw is None:
@@ -156,44 +170,45 @@ class NaviConverter(Node):
             cmd.linear.x = 0.0
             cmd.linear.z = 0.0
             self.navi_pub_.publish(cmd)
-            time.sleep(0.5)
+            time.sleep(1)
             self.execute_next_instruction()
-            time.sleep(0.5)
-            self.done = False
+            time.sleep(2)
         
-        avg_ticks = ((self.encoder_left-self.l_start_encoderval) + (self.encoder_right-self.r_start_encoderval)) / 2.0
-        distance_m = avg_ticks / self.ticks_per_meter
-        distance_error = self.target_distance - distance_m
-        heading_error = self.normalize_angle(self.target_heading - self.yaw)
+        l_distance_m = (self.encoder_left-self.l_start_encoderval) #/ self.ticks_per_meter
+        r_distance_m = (self.encoder_right-self.r_start_encoderval) #/ self.ticks_per_meter 
+        l_distance_error = self.target_distance - l_distance_m
+        r_distance_error = self.target_distance - r_distance_m
+#         heading_error = self.normalize_angle(self.target_heading - self.yaw)
         angle_error = (self.target_heading - self.yaw)
         
         self.get_logger().info(f"Angle error: {angle_error}")
-        self.get_logger().info(f"Distance error: {distance_error}")
+        self.get_logger().info(f"L dist error: {l_distance_error}")
+        self.get_logger().info(f"R dist error: {r_distance_error}")
         
-
         motor1_speed = 0.0
         motor2_speed = 0.0
 
-        if ((abs(distance_error) < self.error_range) and self.move_dist):
+        if (self.move_dist and (abs(l_distance_error) < self.error_range) and (abs(r_distance_error) < self.error_range)):
             motor1_speed = 0.0
             motor2_speed = 0.0
             self.done = True
             self.turn = False
             self.move_dist = False
-        if ((abs(angle_error) < self.angle_error_range) and self.turn):
+        elif (self.turn and (abs(angle_error) < self.angle_error_range)):
             motor1_speed = 0.0
             motor2_speed = 0.0
             self.done = True
             self.turn = False
             self.move_dist = False
         else:
-            linear_output = self.linear_pid.compute(distance_error)
+            l_linear_output = self.l_linear_pid.compute(l_distance_error)
+            r_linear_output = self.r_linear_pid.compute(r_distance_error)
             angular_output = self.angular_pid.compute(angle_error)
 
             # Convert to left and right motor speeds
             if (self.move_dist):
-                motor1_speed = linear_output - angular_output * 0.05
-                motor2_speed = linear_output + angular_output * 0.05
+                motor1_speed = r_linear_output - angular_output * 0.05
+                motor2_speed = l_linear_output + angular_output * 0.05
             elif (self.turn):
                 motor1_speed = -angular_output
                 motor2_speed = angular_output 
