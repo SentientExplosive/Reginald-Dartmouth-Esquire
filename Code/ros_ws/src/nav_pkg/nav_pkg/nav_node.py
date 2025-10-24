@@ -95,7 +95,7 @@ class NaviConverter(Node):
         self.yaw = 0.0
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(50,1),(270,1),(130,-0.5)]
+        self.waypoints = [(50,2),(110,1),(220,-0.5)]
         self.instructions = []
         self.curr_instruction = 0
         
@@ -125,7 +125,7 @@ class NaviConverter(Node):
             total_y += vec[1]
         self.get_logger().info(f"total_y: {total_y}")
         self.get_logger().info(f"total_x: {total_x}")
-        angle = math.tan(total_y/total_x) * (180 / math.pi)
+        angle = math.atan2(total_y, total_x) * (180 / math.pi)
         if (angle < 0):
             angle += 360
         dist = math.sqrt((total_x)**2 + (total_y)**2)
