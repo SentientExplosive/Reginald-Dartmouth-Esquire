@@ -95,7 +95,7 @@ class NaviConverter(Node):
         self.yaw = 0.0
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(50,1),(270,1),(130,-0.5)]
+        self.waypoints = [(50,2),(120,1),(220,-0.5)]
         self.instructions = []
         self.curr_instruction = 0
         
