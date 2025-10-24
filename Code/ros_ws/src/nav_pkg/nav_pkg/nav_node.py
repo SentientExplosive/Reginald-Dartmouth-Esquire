@@ -123,7 +123,7 @@ class NaviConverter(Node):
         for vec in vector_vals:
             total_x += vec[0]
             total_y += vec[1]
-        angle = math.atan(total_y/total_x)
+        angle = math.atan(total_y/total_x) * 180 / math.pi
         dist = math.sqrt((total_x)**2 + (total_y)**2)
         self.instructions.append(f"t{angle}")
         self.instructions.append(f"d{dist}")
