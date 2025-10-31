@@ -3,6 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int64
 from std_msgs.msg import Float32
+from std_msgs.msg import Bool
 import tf_transformations
 
 import math
@@ -67,6 +68,8 @@ class NaviConverter(Node):
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
+        self.navi_run_state_ = self.create_subscription(Bool, 'run_state', self.run_state_callback, 10)
+        self.run_state = bool(0)
         
         # Timer for updating the control
         self.timer_period = 0.04
@@ -95,7 +98,7 @@ class NaviConverter(Node):
         self.yaw = 0.0
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(50,2),(110,1),(220,-0.5)]
+        self.waypoints = [(50,0.5),(110,0.25),(220,-0.5)]
         self.instructions = []
         self.curr_instruction = 0
         
@@ -183,8 +186,11 @@ class NaviConverter(Node):
         self.yaw = msg.data
 #         self.update_control()
 
+    def run_state_callback(self, msg):
+        self.run_state = msg.data
+
     def update_control(self):
-        if self.yaw is None:
+        if self.run_state == bool(0) or self.yaw is None:
             return
         
         # Upon reaching goal, load next instruction

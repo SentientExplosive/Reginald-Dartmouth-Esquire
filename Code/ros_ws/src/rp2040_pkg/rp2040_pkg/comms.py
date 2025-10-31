@@ -3,6 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int64
 from std_msgs.msg import Float32
+from std_msgs.msg import Bool
 import serial
 import time
 
@@ -19,6 +20,12 @@ class SerialCommunicator(Node):
         # Initialize imu publisher
         super().__init__('imu_publisher')
         self.imu_pub = self.create_publisher(Float32, 'imu', 10)
+        
+        super().__init__('run_state_publisher')
+        self.run_state_pub = self.create_publisher(Bool, 'run_state', 10)
+        boolVal = Bool()
+        boolVal.data = bool(0)
+        self.run_state_pub.publish(boolVal)
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
@@ -52,6 +59,7 @@ class SerialCommunicator(Node):
                             # ROS string
                             trueVal = Int64()
                             trueValF = Float32()
+                            boolVal = Bool()
 #                             self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
                             if val.strip("1234567890. ") == "r:":
                                 try:
@@ -76,6 +84,16 @@ class SerialCommunicator(Node):
                                     self.get_logger().info('Publishing: "%s" to imu' % trueValF.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
+                            
+                            elif val.strip("1234567890. ") == "Start":
+                                boolVal.data = bool(1)
+                                self.run_state_pub.publish(boolVal)
+                                self.get_logger().info('Run_State: STARTING')
+                                
+                            elif val.strip("1234567890. ") == "Stop":
+                                boolVal.data = bool(0)
+                                self.run_state_pub.publish(boolVal)
+                                self.get_logger().info('Run_State: STOPPING')
 
             time.sleep(0.01)
         except serial.SerialException as e:
