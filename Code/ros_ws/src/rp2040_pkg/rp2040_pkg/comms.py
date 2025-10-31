@@ -51,7 +51,11 @@ class SerialCommunicator(Node):
                     if part[0:2] == "S*":
                         # String justification & stripping
                         string_data = part
-                        string_data = string_data.lstrip("S*encoder")
+                        string_data = string_data.lstrip("S")
+                        string_data = string_data.lstrip("*")
+                        string_data = string_data.lstrip("encoder")
+                        self.get_logger().info(string_data)
+                        
                         string_data = string_data.split(",")
 
                         # Entry of data points into topics
@@ -69,7 +73,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("r: "))
 
-                            elif val.strip("1234567890. ") == "l:":
+                            if val.strip("1234567890. ") == "l:":
                                 try:
                                     trueVal.data = int(val.strip("l: "))
                                     self.l_encoder_pub.publish(trueVal)
@@ -77,7 +81,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("l: "))
                                     
-                            elif val.strip("1234567890. ") == "imu:":
+                            if val.strip("1234567890. ") == "imu:":
                                 try:
                                     trueValF.data = float(val.strip("imu: "))
                                     self.imu_pub.publish(trueValF)

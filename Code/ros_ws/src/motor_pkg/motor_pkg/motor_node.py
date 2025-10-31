@@ -1,7 +1,9 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool
 from gpiozero import PWMOutputDevice, OutputDevice
+import time
 
 class DualMotorController(Node):
     def __init__(self):
@@ -24,21 +26,48 @@ class DualMotorController(Node):
             self.motor_command_callback,
             10
         )
+        
+        # Subscription to run_state
+        self.motor_run_state_ = self.create_subscription(Bool, 'run_state', self.run_state_callback, 10)
+        
 
         self.get_logger().info("Dual Motor Controller Node started.")
 
+    def run_state_callback(self, msg):
+        if not msg.data:
+            self.pwm_pin_motor1.value = 1.0
+            self.pwm_pin_motor2.value = 1.0
+            self.dir_pin_motor1.toggle()
+            self.dir_pin_motor2.toggle()
+            self.pwm_pin_motor1.on()
+            self.motor1slp.on()
+            self.pwm_pin_motor2.on()
+            self.motor2slp.on()
+            
+            time.sleep(0.08)
+            self.pwm_pin_motor1.off()
+            self.motor1slp.off()
+            self.pwm_pin_motor2.off()
+            self.motor2slp.off()
+  
     def motor_command_callback(self, msg):
         # Motor 1
         self.pwm_pin_motor1.value = abs(msg.linear.x)
 
         # direction_motor1 = msg.motor1_direction
-        self.get_logger().info(f"\nMotor 1 Command: Speed={self.pwm_pin_motor1.value}\nMotor 2 Command: Speed={self.pwm_pin_motor2.value}")
+        self.get_logger().info(f"Speed_a={self.pwm_pin_motor1.value}")
+        
 
         # Clamp motor 1 speed
         self.pwm_pin_motor1.value = max(min(self.pwm_pin_motor1.value, 1.0), -1.0)
+        self.get_logger().info(f"Speed_b={self.pwm_pin_motor1.value}")
         # Turn the damn thing on
-        self.pwm_pin_motor1.on()
-        self.motor1slp.on()
+        if self.pwm_pin_motor1.value == 0:
+            self.pwm_pin_motor1.off()
+            self.motor1slp.off()
+        else:
+            self.pwm_pin_motor1.on()
+            self.motor1slp.on()
         
         if msg.linear.x > 0:
             self.dir_pin_motor1.on()  # Forward
@@ -51,13 +80,20 @@ class DualMotorController(Node):
         # Clamp motor 2 speed
         self.pwm_pin_motor2.value = max(min(self.pwm_pin_motor2.value, 1.0), -1.0)
         # Turn the damn thing on
-        self.pwm_pin_motor2.on()
-        self.motor2slp.on()
+        if self.pwm_pin_motor2.value == 0:
+            self.pwm_pin_motor2.off()
+            self.motor2slp.off()
+        else:
+            self.pwm_pin_motor2.on()
+            self.motor2slp.on()
         
         if msg.linear.z > 0:
             self.dir_pin_motor2.on()  # Forward
         else:
             self.dir_pin_motor2.off()  # Reverse
+
+        self.get_logger().info(f"\nMotor 1 Command: Speed={self.pwm_pin_motor1.value}\nMotor 2 Command: Speed={self.pwm_pin_motor2.value}")
+        
 
     def destroy_node(self):
         self.pwm_pin_motor1.close()

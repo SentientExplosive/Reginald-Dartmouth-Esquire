@@ -79,14 +79,14 @@ class NaviConverter(Node):
         self.target_distance = 0.0    # meters
         self.target_heading = 0.0     # radians
         
-        self.ticks_per_meter = 12022
+        self.ticks_per_meter = 23686
         self.error_range = 250
-        self.angle_error_range = 1
+        self.angle_error_range = 0.5
         
         #PID Controllers
         self.l_linear_pid = Piddles(0.25, 0.0, 0.05, name='l_linear', mod = 0.001)
         self.r_linear_pid = Piddles(0.25, 0.0, 0.05, name='r_linear', mod = 0.001)
-        self.angular_pid = Piddles(1, 0.0, 0.25, name='angular', mod = 0.04)
+        self.angular_pid = Piddles(0.1, 0.0, 0.02, name='angular', mod = 0.04)
         
         # Initial encoder values when executing an instruction
         self.l_start_encoderval = 0.0
@@ -98,7 +98,7 @@ class NaviConverter(Node):
         self.yaw = 0.0
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(50,0.5),(110,0.25),(220,-0.5)]
+        self.waypoints = [(352,1.92),(60,0.94)]
         self.instructions = []
         self.curr_instruction = 0
         
@@ -188,9 +188,14 @@ class NaviConverter(Node):
 
     def run_state_callback(self, msg):
         self.run_state = msg.data
+        cmd = Twist()
+        cmd.linear.x = 0.0
+        cmd.linear.z = 0.0
+        self.navi_pub_.publish(cmd)
+        
 
     def update_control(self):
-        if self.run_state == bool(0) or self.yaw is None:
+        if not self.run_state or self.yaw is None:
             return
         
         # Upon reaching goal, load next instruction
@@ -236,11 +241,11 @@ class NaviConverter(Node):
 
             # Convert to left and right motor speeds
             if (self.move_dist):
-                motor1_speed = r_linear_output - angular_output * 0.05
-                motor2_speed = l_linear_output + angular_output * 0.05
+                motor1_speed = max(min(r_linear_output, 1.0), -1.0) * 0.75 - angular_output * 0.1
+                motor2_speed = max(min(l_linear_output, 1.0), -1.0) * 0.75 + angular_output * 0.1
             elif (self.turn):
-                motor1_speed = -angular_output
-                motor2_speed = angular_output 
+                motor1_speed = max(min(-angular_output, 1.0), -1.0) * 0.5
+                motor2_speed = max(min(angular_output, 1.0), -1.0) * 0.5
 
         # Clip to [-1, 1]
         motor1_speed = max(min(motor1_speed, 1.0), -1.0)
