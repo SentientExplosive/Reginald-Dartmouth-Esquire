@@ -110,6 +110,9 @@ void ISR_button2() {
       Serial.flush();
     }
 
+    rightEncoderValue = 0
+    leftEncoderValue = 0
+
   } else if (delta>buttonDelay) {
     pixels.setPixelColor(1, pixels.Color(0, 100, 100));
     // Serial.println("Button 2 off");
@@ -256,7 +259,7 @@ void checkInbox() {
 
 void sendData() {
   int bytesAvailable = Serial.availableForWrite();
-  String msg = msg_start + "encoder l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + smsg_end;
+  String msg = msg_start + "l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + smsg_end;
   int stringLength = msg.length();
   if (bytesAvailable > stringLength) {
     Serial.println(msg);
