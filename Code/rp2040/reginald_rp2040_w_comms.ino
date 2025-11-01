@@ -41,6 +41,7 @@ char cmsg_end = ';';
 int delay_between_msgs = 50;
 
 
+// Button 1 has start / stop functionality
 void ISR_button1() {
   long delta = now - stopwatch;
   if (switch1==0 && delta>buttonDelay) {
@@ -48,25 +49,69 @@ void ISR_button1() {
     // Serial.println("Button 1 on");
     switch1 = 1;
     stopwatch = now;
+
+    // Send start message
+    int bytesAvailable = Serial.availableForWrite();
+    String msg = msg_start + "Start" + smsg_end;
+    int stringLength = msg.length();
+    if (bytesAvailable > stringLength) {
+      Serial.println(msg);
+      // Serial.write(msg);
+      Serial.flush();
+    }
   
   } else if (delta>buttonDelay) {
-    pixels.setPixelColor(0, pixels.Color(0, 100, 100));
+    pixels.setPixelColor(0, pixels.Color(200, 0, 0));
     // Serial.println("Button 1 off");
     switch1 = 0;
     stopwatch = now;
+
+    // Send stop message
+    int bytesAvailable = Serial.availableForWrite();
+    String msg = msg_start + "Stop" + smsg_end;
+    int stringLength = msg.length();
+    if (bytesAvailable > stringLength) {
+      Serial.println(msg);
+      // Serial.write(msg);
+      Serial.flush();
+    }
   }
   pixels.show();
 }
 
+// Button 2 will restart the whole program
 void ISR_button2() {
   long delta = now - stopwatch2;
   if (switch2==0 && delta>buttonDelay) {
-    pixels.setPixelColor(1, pixels.Color(200, 0, 0));
+    pixels.setPixelColor(1, pixels.Color(0, 0, 200));
     // Serial.println("Button 2 on");
     switch2 = 1;
     stopwatch2 = now;
+
+    // Send stop message
+    int bytesAvailable = Serial.availableForWrite();
+    String msg = msg_start + "Stop" + smsg_end;
+    int stringLength = msg.length();
+    if (bytesAvailable > stringLength) {
+      Serial.println(msg);
+      // Serial.write(msg);
+      Serial.flush();
+    }
+
+    delay(100);
+
+    // Send restart message
+    bytesAvailable = Serial.availableForWrite();
+    msg = msg_start + "Restart" + smsg_end;
+    stringLength = msg.length();
+    if (bytesAvailable > stringLength) {
+      Serial.println(msg);
+      // Serial.write(msg);
+      Serial.flush();
+    }
+
   } else if (delta>buttonDelay) {
-    pixels.setPixelColor(1, pixels.Color(160, 0, 170));
+    pixels.setPixelColor(1, pixels.Color(0, 100, 100));
     // Serial.println("Button 2 off");
     switch2 = 0;
     stopwatch2 = now;
@@ -94,8 +139,8 @@ void setup() {
   // Set interrupts for each button, set initial color and stopwatches
   attachInterrupt(digitalPinToInterrupt(PINONE), ISR_button1, RISING);
   attachInterrupt(digitalPinToInterrupt(PINTWO), ISR_button2, RISING);
-  pixels.setPixelColor(0, pixels.Color(0, 100, 0));
-  pixels.setPixelColor(1, pixels.Color(160, 0, 170));
+  pixels.setPixelColor(0, pixels.Color(200, 0, 0));
+  pixels.setPixelColor(1, pixels.Color(0, 0, 0));
   pixels.show();
   stopwatch = millis(); // Timer to fix button presses
   stopwatch2 = millis();
@@ -211,7 +256,7 @@ void checkInbox() {
 
 void sendData() {
   int bytesAvailable = Serial.availableForWrite();
-  String msg = msg_start + "encoder r: " + String(rightEncoderValue) + ", l: " + String(leftEncoderValue) + ", imu: " + String(angle) + smsg_end;
+  String msg = msg_start + "encoder l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + smsg_end;
   int stringLength = msg.length();
   if (bytesAvailable > stringLength) {
     Serial.println(msg);
