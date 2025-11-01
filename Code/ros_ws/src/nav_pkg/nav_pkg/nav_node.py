@@ -3,7 +3,6 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int64
 from std_msgs.msg import Float32
-from std_msgs.msg import Bool
 import tf_transformations
 
 import math
@@ -68,8 +67,8 @@ class NaviConverter(Node):
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
-        self.navi_run_state_ = self.create_subscription(Bool, 'run_state', self.run_state_callback, 10)
-        self.run_state = bool(0)
+        self.navi_run_state_ = self.create_subscription(Int64, 'run_state', self.run_state_callback, 10)
+        self.run_state = 0
         
         # Timer for updating the control
         self.timer_period = 0.04
@@ -188,14 +187,41 @@ class NaviConverter(Node):
 
     def run_state_callback(self, msg):
         self.run_state = msg.data
-        cmd = Twist()
-        cmd.linear.x = 0.0
-        cmd.linear.z = 0.0
-        self.navi_pub_.publish(cmd)
+
+        if self.run_state == 0:
+            cmd = Twist()
+            cmd.linear.x = 0.0
+            cmd.linear.z = 0.0
+            self.navi_pub_.publish(cmd)
+        
+        if self.run_state == 2:
+            # Reset target angle and distance variables
+            self.target_distance = 0.0    # meters
+            self.target_heading = 0.0     # radians
+                
+            # Reset encoder variables 
+            self.l_start_encoderval = 0.0
+            self.r_start_encoderval = 0.0
+            self.encoder_left = 0.0
+            self.encoder_right = 0.0
+
+            # Reset instruction index
+            self.curr_instruction = 0
+
+            # Reset movement states to default values
+            self.done = False
+            self.move_dist = False
+            self.turn = False
+
+            # Set run_state to 0 so the program remains paused
+            self.run_state = 0
+
+            # Load first instruction
+            self.execute_next_instruction()
         
 
     def update_control(self):
-        if not self.run_state or self.yaw is None:
+        if self.run_state == 0 or self.yaw is None:
             return
         
         # Upon reaching goal, load next instruction

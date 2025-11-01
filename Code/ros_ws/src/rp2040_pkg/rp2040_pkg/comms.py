@@ -3,7 +3,6 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int64
 from std_msgs.msg import Float32
-from std_msgs.msg import Bool
 import serial
 import time
 
@@ -22,10 +21,10 @@ class SerialCommunicator(Node):
         self.imu_pub = self.create_publisher(Float32, 'imu', 10)
         
         super().__init__('run_state_publisher')
-        self.run_state_pub = self.create_publisher(Bool, 'run_state', 10)
-        boolVal = Bool()
-        boolVal.data = bool(0)
-        self.run_state_pub.publish(boolVal)
+        self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
+        stateVal = Int64()
+        stateVal.data = 0
+        self.run_state_pub.publish(stateVal)
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
@@ -53,7 +52,6 @@ class SerialCommunicator(Node):
                         string_data = part
                         string_data = string_data.lstrip("S")
                         string_data = string_data.lstrip("*")
-                        string_data = string_data.lstrip("encoder")
                         self.get_logger().info(string_data)
                         
                         string_data = string_data.split(",")
@@ -63,7 +61,7 @@ class SerialCommunicator(Node):
                             # ROS string
                             trueVal = Int64()
                             trueValF = Float32()
-                            boolVal = Bool()
+                            stateVal = Int64()
 #                             self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
                             if val.strip("1234567890. ") == "r:":
                                 try:
@@ -73,7 +71,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("r: "))
 
-                            if val.strip("1234567890. ") == "l:":
+                            elif val.strip("1234567890. ") == "l:":
                                 try:
                                     trueVal.data = int(val.strip("l: "))
                                     self.l_encoder_pub.publish(trueVal)
@@ -81,7 +79,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("l: "))
                                     
-                            if val.strip("1234567890. ") == "imu:":
+                            elif val.strip("1234567890. ") == "imu:":
                                 try:
                                     trueValF.data = float(val.strip("imu: "))
                                     self.imu_pub.publish(trueValF)
@@ -89,14 +87,19 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
                             
+                            elif val.strip("1234567890. ") == "Restart":
+                                stateVal.data = 2
+                                self.run_state_pub.publish(stateVal)
+                                self.get_logger().info('Run_State: RESTARTING')
+
                             elif val.strip("1234567890. ") == "Start":
-                                boolVal.data = bool(1)
-                                self.run_state_pub.publish(boolVal)
+                                stateVal.data = 1
+                                self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: STARTING')
                                 
                             elif val.strip("1234567890. ") == "Stop":
-                                boolVal.data = bool(0)
-                                self.run_state_pub.publish(boolVal)
+                                stateVal.data = 0
+                                self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: STOPPING')
 
             time.sleep(0.01)
