@@ -20,11 +20,18 @@ class SerialCommunicator(Node):
         super().__init__('imu_publisher')
         self.imu_pub = self.create_publisher(Float32, 'imu', 10)
         
+        # Initialize run_state publisher
         super().__init__('run_state_publisher')
         self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
+        
+        # Send default state value (0) to the topic
         stateVal = Int64()
         stateVal.data = 0
         self.run_state_pub.publish(stateVal)
+
+        # Initialize dist publisher
+        super().__init__('dist_publisher')
+        self.dist_pub = self.create_publisher(Int64, 'dist', 10)
 
         # Initialize the serial port
         # Update the serial port name and baud rate as needed (should add code to search for open ports and trying to connect to them, or dedicate a specific port to the PI)
@@ -86,6 +93,14 @@ class SerialCommunicator(Node):
                                     self.get_logger().info('Publishing: "%s" to imu' % trueValF.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
+                            
+                            elif val.strip("1234567890. ") == "dist:":
+                                try:
+                                    trueVal.data = float(val.strip("dist: "))
+                                    self.dist_pub.publish(trueVal)
+                                    self.get_logger().info('Publishing: "%s" to dist' % trueVal.data)
+                                except:
+                                    self.get_logger().info('Value Issue: "%s" not float' % val.strip("dist: "))
                             
                             elif val.strip("1234567890. ") == "Restart":
                                 stateVal.data = 2

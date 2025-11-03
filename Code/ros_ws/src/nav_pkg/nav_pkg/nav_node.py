@@ -63,11 +63,12 @@ class NaviConverter(Node):
         #Publisher to Twist
         self.navi_pub_ = self.create_publisher(Twist, "/cmd_vel", 10)
         
-        #Subscriber to encoders + IMU
+        #Subscribe to necessary topics
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
         self.navi_run_state_ = self.create_subscription(Int64, 'run_state', self.run_state_callback, 10)
+        self.navi_dist_ = self.create_subscription(Int64, 'dist', self.dist_callback, 10)
         self.run_state = 0
         
         # Timer for updating the control
@@ -96,6 +97,12 @@ class NaviConverter(Node):
         self.encoder_right = 0.0
         self.yaw = 0.0
         
+        # Obstacle Detection Stuff (may break off into separate node in future)
+        super().__init__('run_state_publisher')
+        self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
+        self.curr_dist = 0
+        self.min_dist = 50
+
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
         self.waypoints = [(352,1.92),(60,0.94)]
         self.instructions = []
@@ -175,15 +182,12 @@ class NaviConverter(Node):
     
     def encoder_left_callback(self, msg):
         self.encoder_left = msg.data
-#         self.update_control()
 
     def encoder_right_callback(self, msg):
         self.encoder_right = msg.data
-#         self.update_control()
 
     def imu_callback(self, msg):
         self.yaw = msg.data
-#         self.update_control()
 
     def run_state_callback(self, msg):
         self.run_state = msg.data
@@ -219,6 +223,15 @@ class NaviConverter(Node):
             # Load first instruction
             self.execute_next_instruction()
         
+    def dist_callback(self, msg):
+        self.curr_dist = msg
+
+        if self.curr_dist < self.min_dist:
+            # Stop & recalibrate pathing
+            state = Int64()
+            state.data = 0
+            self.run_state_pub.publish(state)
+            self.get_logger().info('OBSTACLE DETECTED, STOPPING')
 
     def update_control(self):
         if self.run_state == 0 or self.yaw is None:
