@@ -1,5 +1,6 @@
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_BNO055.h>
+#include "Adafruit_VL53L0X.h"
 
 // Definitions & Initializations For Button And Neopixel Pins
 #define PIN       9
@@ -19,9 +20,10 @@ volatile long rightEncoderValue = 0;
 volatile int lastLeftEncoded = 0;
 volatile long leftEncoderValue = 0;
 
-// BNO & Neopixel initialization
+// BNO, VL53, & Neopixel initialization
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
 
 // Various variables used for button functionality
 int switch1 = 0;
@@ -31,8 +33,9 @@ long stopwatch2 = 0;
 long buttonDelay = 250;
 long now = 0;
 
-// Angle variables
+// Angle & Dist variables
 double angle;
+int dist;
 
 // Communication Variables
 String msg_start = "S*";
@@ -110,8 +113,8 @@ void ISR_button2() {
       Serial.flush();
     }
 
-    rightEncoderValue = 0
-    leftEncoderValue = 0
+    rightEncoderValue = 0;
+    leftEncoderValue = 0;
 
   } else if (delta>buttonDelay) {
     pixels.setPixelColor(1, pixels.Color(0, 100, 100));
@@ -133,7 +136,23 @@ void setup() {
     while (1);
   }
 
-  pixels.begin();  // INITIALIZE NeoPixel strip object (REQUIRED)
+  if (!lox.begin()) {
+    Serial.println(F("Failed to boot VL53L0X"));
+    while (1);
+  }
+
+  // Test distance sensor
+  for (int i=0; i<7; i++) {
+    VL53L0X_RangingMeasurementData_t measure;
+    lox.rangingTest(&measure, false);
+    if (measure.RangeStatus != 4) {
+      int garbageDist = measure.RangeMilliMeter;
+      Serial.print("Dist: ");
+      Serial.println(garbageDist);
+    }
+  }
+
+  pixels.begin();  // INITIALIZE NeoPixels
 
   // Initialize pins for the buttons
   pinMode(PINONE, INPUT_PULLUP);
@@ -158,6 +177,13 @@ void setup() {
 void loop() {
   now = millis();
   
+  // Measure the distance
+  VL53L0X_RangingMeasurementData_t measure;
+  lox.rangingTest(&measure, false);
+  if (measure.RangeStatus != 4) {
+    dist = measure.RangeMilliMeter;
+  }
+
   // Measure the angle
   sensors_event_t orientationData;
   bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
@@ -259,7 +285,7 @@ void checkInbox() {
 
 void sendData() {
   int bytesAvailable = Serial.availableForWrite();
-  String msg = msg_start + "l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + smsg_end;
+  String msg = msg_start + "l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + ", dist: " + String(dist) + smsg_end;
   int stringLength = msg.length();
   if (bytesAvailable > stringLength) {
     Serial.println(msg);
