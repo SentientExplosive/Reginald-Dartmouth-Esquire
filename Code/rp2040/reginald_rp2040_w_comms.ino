@@ -1,5 +1,7 @@
+#include <Wire.h>
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_BNO055.h>
+#include "Adafruit_TCS34725.h"
 #include "Adafruit_VL53L0X.h"
 
 // Definitions & Initializations For Button And Neopixel Pins
@@ -20,10 +22,21 @@ volatile long rightEncoderValue = 0;
 volatile int lastLeftEncoded = 0;
 volatile long leftEncoderValue = 0;
 
-// BNO, VL53, & Neopixel initialization
+// BNO, VL53, TCS, & Neopixel initialization
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+
+// ------ Color Sensor Variables ------
+// Pick analog outputs, for the UNO these three work well
+// use ~560  ohm resistor between Red & Blue, ~1K for green (its brighter)
+#define redpin 3
+#define greenpin 5
+#define bluepin 6
+#define commonAnode true // set to false if using a common cathode LED
+byte gammatable[256]; // our RGB -> eye-recognized gamma color
+float red, green, blue;
 
 // Various variables used for button functionality
 int switch1 = 0;
@@ -136,8 +149,15 @@ void setup() {
     while (1);
   }
 
+  // Check if the distance sensor is working, else stall program
   if (!lox.begin()) {
     Serial.println(F("Failed to boot VL53L0X"));
+    while (1);
+  }
+
+  // Check if the color sensor is working, else stall program
+  if (!tcs.begin()) {
+    Serial.println(F("Failed to boot TCS34725"));
     while (1);
   }
 
@@ -158,6 +178,11 @@ void setup() {
   pinMode(PINONE, INPUT_PULLUP);
   pinMode(PINTWO, INPUT_PULLUP);
 
+  // Initialize pins for color sensor
+  pinMode(redpin, OUTPUT);
+  pinMode(greenpin, OUTPUT);
+  pinMode(bluepin, OUTPUT);
+
   // Set interrupts for each button, set initial color and stopwatches
   attachInterrupt(digitalPinToInterrupt(PINONE), ISR_button1, RISING);
   attachInterrupt(digitalPinToInterrupt(PINTWO), ISR_button2, RISING);
@@ -171,6 +196,22 @@ void setup() {
   sensors_event_t orientationData;
   bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
   angle = orientationData.orientation.x;
+
+  // For color sensor
+  // Gamma table that helps convert RGB colors to what humans see
+  for (int i=0; i<256; i++) {
+    float x = i;
+    x /= 255;
+    x = pow(x, 2.5);
+    x *= 255;
+
+    if (commonAnode) {
+      gammatable[i] = 255 - x;
+    } else {
+      gammatable[i] = x;
+    }
+    //Serial.println(gammatable[i]);
+  }
 
 }
 
@@ -188,6 +229,19 @@ void loop() {
   sensors_event_t orientationData;
   bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
   angle = orientationData.orientation.x;
+
+  // Get the color
+  tcs.setInterrupt(false);  // turn on LED
+  delay(60);  // takes 50ms to read
+  tcs.getRGB(&red, &green, &blue);
+  tcs.setInterrupt(true);  // turn off LED
+  Serial.print("R:\t"); Serial.print(int(red)); 
+  Serial.print("\tG:\t"); Serial.print(int(green)); 
+  Serial.print("\tB:\t"); Serial.println(int(blue));
+
+  analogWrite(redpin, gammatable[(int)red]);
+  analogWrite(greenpin, gammatable[(int)green]);
+  analogWrite(bluepin, gammatable[(int)blue]);
 
   checkInbox();  // checks for any messages sent to the rp2040 (not used as of rn but built in just in case)
   sendData();
@@ -287,6 +341,15 @@ void sendData() {
   int bytesAvailable = Serial.availableForWrite();
   String msg = msg_start + "l: " + String(leftEncoderValue) + ", r: " + String(rightEncoderValue) + ", imu: " + String(angle) + ", dist: " + String(dist) + smsg_end;
   int stringLength = msg.length();
+  if (bytesAvailable > stringLength) {
+    Serial.println(msg);
+    // Serial.write(msg);
+    Serial.flush();
+  }
+
+  bytesAvailable = Serial.availableForWrite();
+  msg = msg_start + "color: " + red + " " + green + " " + blue + smsg_end;
+  stringLength = msg.length();
   if (bytesAvailable > stringLength) {
     Serial.println(msg);
     // Serial.write(msg);
