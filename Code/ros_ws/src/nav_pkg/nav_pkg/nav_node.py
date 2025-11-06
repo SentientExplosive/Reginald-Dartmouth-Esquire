@@ -167,6 +167,13 @@ class NaviConverter(Node):
             elif i[0] == "t":
                 self.target_distance = 0
                 self.target_heading = float(i.strip("t"))
+
+                # Find temp zeroing angle
+                zeroing_angle = self.target_heading - 180
+                if (zeroing_angle < 0):
+                    zeroing_angle += 360
+                self.temp_turn_to_angle = zeroing_angle
+
                 self.turn = True
                 self.move_dist = False
             
@@ -192,10 +199,13 @@ class NaviConverter(Node):
         self.encoder_right = msg.data
 
     def imu_callback(self, msg):
-        angle = msg.data - self.zero_to_angle
+        if self.turn:
+            angle = msg.data - self.temp_turn_to_angle
+        else:
+            angle = msg.data - self.zero_to_angle
         if (angle < 0):
             angle += 360
-        
+
         self.yaw = angle
         self.true_yaw = msg.data
 #         self.get_logger().info(f"Angle: {self.yaw} <-- {msg.data}")
@@ -264,17 +274,25 @@ class NaviConverter(Node):
             self.execute_next_instruction()
             time.sleep(2)
         
+        # Calculate distance error
         l_distance_m = (self.encoder_left-self.l_start_encoderval) #/ self.ticks_per_meter
         r_distance_m = (self.encoder_right-self.r_start_encoderval) #/ self.ticks_per_meter 
         l_distance_error = self.target_distance - l_distance_m
         r_distance_error = self.target_distance - r_distance_m
 #         heading_error = self.normalize_angle(self.target_heading - self.yaw)
-        angle_error = (self.target_heading - self.yaw)
         
+        # Calculate angle error
+        if self.turn:
+            angle_error = (180 - self.yaw)
+        else:
+            angle_error = (self.target_heading - self.yaw)
+        
+        # Output angle and distance error
         self.get_logger().info(f"Angle error: {angle_error}")
         self.get_logger().info(f"L dist error: {l_distance_error}")
         self.get_logger().info(f"R dist error: {r_distance_error}")
         
+        # Get motor speeds
         motor1_speed = 0.0
         motor2_speed = 0.0
 
