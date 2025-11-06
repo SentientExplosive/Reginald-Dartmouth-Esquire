@@ -96,12 +96,17 @@ class NaviConverter(Node):
         self.encoder_left = 0.0
         self.encoder_right = 0.0
         self.yaw = 0.0
+        self.true_yaw = 0.0
+        
+        # Initial angle to zero off of, taken upon "Restart" state
+        self.zero_to_angle = 0.0
+        self.temp_turn_to_angle = 0.0
         
         # Obstacle Detection Stuff (may break off into separate node in future)
-        super().__init__('run_state_publisher')
-        self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
+#         super().__init__('run_state_publisher')
+#         self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
         self.curr_dist = 0
-        self.min_dist = 50
+        self.min_dist = 0
 
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
         self.waypoints = [(352,1.92),(60,0.94)]
@@ -187,10 +192,17 @@ class NaviConverter(Node):
         self.encoder_right = msg.data
 
     def imu_callback(self, msg):
-        self.yaw = msg.data
+        angle = msg.data - self.zero_to_angle
+        if (angle < 0):
+            angle += 360
+        
+        self.yaw = angle
+        self.true_yaw = msg.data
+#         self.get_logger().info(f"Angle: {self.yaw} <-- {msg.data}")
 
     def run_state_callback(self, msg):
         self.run_state = msg.data
+        self.get_logger().info(f"State set to: {self.run_state}")
 
         if self.run_state == 0:
             cmd = Twist()
@@ -202,6 +214,10 @@ class NaviConverter(Node):
             # Reset target angle and distance variables
             self.target_distance = 0.0    # meters
             self.target_heading = 0.0     # radians
+            
+            # Set zero_to_angle to current angle
+            self.zero_to_angle = self.true_yaw
+            self.get_logger().info(f"Zero To Angle: {self.zero_to_angle}")
                 
             # Reset encoder variables 
             self.l_start_encoderval = 0.0
@@ -224,14 +240,15 @@ class NaviConverter(Node):
             self.execute_next_instruction()
         
     def dist_callback(self, msg):
-        self.curr_dist = msg
+        self.curr_dist = msg.data
 
         if self.curr_dist < self.min_dist:
             # Stop & recalibrate pathing
             state = Int64()
             state.data = 0
-            self.run_state_pub.publish(state)
-            self.get_logger().info('OBSTACLE DETECTED, STOPPING')
+            self.run_state = 0
+#             self.run_state_pub.publish(state)
+#             self.get_logger().info('OBSTACLE DETECTED, STOPPING')
 
     def update_control(self):
         if self.run_state == 0 or self.yaw is None:
@@ -280,8 +297,8 @@ class NaviConverter(Node):
 
             # Convert to left and right motor speeds
             if (self.move_dist):
-                motor1_speed = max(min(r_linear_output, 1.0), -1.0) * 0.75 - angular_output * 0.1
-                motor2_speed = max(min(l_linear_output, 1.0), -1.0) * 0.75 + angular_output * 0.1
+                motor1_speed = max(min(r_linear_output, 1.0), -1.0) * 0.95 - angular_output * 0.1
+                motor2_speed = max(min(l_linear_output, 1.0), -1.0) * 0.95 + angular_output * 0.1
             elif (self.turn):
                 motor1_speed = max(min(-angular_output, 1.0), -1.0) * 0.5
                 motor2_speed = max(min(angular_output, 1.0), -1.0) * 0.5

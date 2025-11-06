@@ -70,7 +70,7 @@ class SerialCommunicator(Node):
                             trueValF = Float32()
                             stateVal = Int64()
 #                             self.get_logger().info('AAAAAAAAAAAAAAAAAAA')
-                            if val.strip("1234567890. ") == "r:":
+                            if val.strip("-1234567890. ") == "r:":
                                 try:
                                     trueVal.data = int(val.strip("r: "))
                                     self.r_encoder_pub.publish(trueVal)
@@ -78,7 +78,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("r: "))
 
-                            elif val.strip("1234567890. ") == "l:":
+                            elif val.strip("-1234567890. ") == "l:":
                                 try:
                                     trueVal.data = int(val.strip("l: "))
                                     self.l_encoder_pub.publish(trueVal)
@@ -86,7 +86,7 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("l: "))
                                     
-                            elif val.strip("1234567890. ") == "imu:":
+                            elif val.strip("-1234567890. ") == "imu:":
                                 try:
                                     trueValF.data = float(val.strip("imu: "))
                                     self.imu_pub.publish(trueValF)
@@ -94,25 +94,25 @@ class SerialCommunicator(Node):
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
                             
-                            elif val.strip("1234567890. ") == "dist:":
+                            elif val.strip("-1234567890. ") == "dist:":
                                 try:
-                                    trueVal.data = float(val.strip("dist: "))
+                                    trueVal.data = int(val.strip("dist: "))
                                     self.dist_pub.publish(trueVal)
                                     self.get_logger().info('Publishing: "%s" to dist' % trueVal.data)
                                 except:
-                                    self.get_logger().info('Value Issue: "%s" not float' % val.strip("dist: "))
+                                    self.get_logger().info('Value Issue: "%s" not int' % val.strip("dist: "))
                             
-                            elif val.strip("1234567890. ") == "Restart":
+                            elif val.strip("-1234567890. ") == "Restart":
                                 stateVal.data = 2
                                 self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: RESTARTING')
 
-                            elif val.strip("1234567890. ") == "Start":
+                            elif val.strip("-1234567890. ") == "Start":
                                 stateVal.data = 1
                                 self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: STARTING')
                                 
-                            elif val.strip("1234567890. ") == "Stop":
+                            elif val.strip("-1234567890. ") == "Stop":
                                 stateVal.data = 0
                                 self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: STOPPING')
