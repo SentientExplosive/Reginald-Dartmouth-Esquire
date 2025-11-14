@@ -24,7 +24,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'navi = nav_pkg.nav_node:main'
+            'navi = nav_pkg.movement:main',
+            'obbi = nav_pkg.obstacles:main',
+            'pathi = nav_pkg.path_planning:main',
         ],
     },
 )
