@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int64
+from std_msgs.msg import String
 
 import math
 import time
@@ -11,17 +12,18 @@ class NaviPathPlanning(Node):
 
         # Initialize path planning publisher
         super().__init__('instructions_publisher')
-        self.instructions_pub = self.create_publisher(Int64, 'instructions', 10)
+        self.instructions_pub = self.create_publisher(String, 'instructions', 10)
 
         # Initialize subscriptions
         self.path_planning_ = self.create_subscription(Int64, 'path_planning', self.path_planning_callback, 10)
         
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
-        self.waypoints = [(135,0)]#[(352,1.92),(60,0.94)]
+        self.waypoints = [(352,1.92),(60,0.94)]
 
         # Path Planning Variables
         self.instructions = []
-        self.waypoints = []
+        
+        self.get_logger().info("Path Planning Online")
 
     def path_planning_callback(self, msg):
         state = msg.data
@@ -62,7 +64,10 @@ class NaviPathPlanning(Node):
         self.get_logger().info(f"Instructions: {self.instructions}")
         
         # Publish instruction Set
-        self.execute_next_instruction()
+        instructions = String()
+        instructions.data = repr(self.instructions)
+        self.instructions_pub.publish(instructions)
+        # self.execute_next_instruction()
     
     def update_instructions(self):
         pass

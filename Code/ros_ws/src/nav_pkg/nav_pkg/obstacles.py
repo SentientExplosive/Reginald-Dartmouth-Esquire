@@ -28,6 +28,8 @@ class NaviAvoidance(Node):
         path_state = Int64()
         path_state.data = 0
         self.path_planning_pub.publish(path_state)
+        
+        self.get_logger().info("Obstacle Avoidance Online")
 
     def dist_callback(self, msg):
         self.curr_dist = msg.data

@@ -3,6 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int64
 from std_msgs.msg import Float32
+from std_msgs.msg import String
 # import tf_transformations
 
 import math
@@ -68,7 +69,7 @@ class NaviMovement(Node):
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
         self.navi_run_state_ = self.create_subscription(Int64, 'run_state', self.run_state_callback, 10)
-        self.navi_instructions_ = self.create_subscription(Int64, 'instructions', self.instructions_callback, 10)
+        self.navi_instructions_ = self.create_subscription(String, 'instructions', self.instructions_callback, 10)
 
         # Timer for updating the control
         self.timer_period = 0.04
@@ -113,6 +114,8 @@ class NaviMovement(Node):
         self.move_dist = False
         self.turn = False
         self.obstacle_detected = False
+        
+        self.get_logger().info("Movement Online")
         
     def execute_next_instruction(self):
         # Gets the next instruction in the list
@@ -211,7 +214,7 @@ class NaviMovement(Node):
             self.execute_next_instruction()
         
     def instructions_callback(self, msg):
-        self.instructions = msg.data
+        self.instructions = eval(msg.data)
         self.curr_instruction = 0
         self.execute_next_instruction()
 
