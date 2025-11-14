@@ -24,6 +24,9 @@ class SerialCommunicator(Node):
         super().__init__('run_state_publisher')
         self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
         
+        super().__init__('color_publisher')
+        self.color_pub = self.create_publisher(String, 'color', 10)
+        
         # Send default state value (0) to the topic
         stateVal = Int64()
         stateVal.data = 0
@@ -74,7 +77,7 @@ class SerialCommunicator(Node):
                                 try:
                                     trueVal.data = int(val.strip("r: "))
                                     self.r_encoder_pub.publish(trueVal)
-                                    self.get_logger().info('Publishing: "%s" to r_encoder' % trueVal.data)
+#                                     self.get_logger().info('Publishing: "%s" to r_encoder' % trueVal.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("r: "))
 
@@ -82,7 +85,7 @@ class SerialCommunicator(Node):
                                 try:
                                     trueVal.data = int(val.strip("l: "))
                                     self.l_encoder_pub.publish(trueVal)
-                                    self.get_logger().info('Publishing: "%s" to l_encoder' % trueVal.data)
+#                                     self.get_logger().info('Publishing: "%s" to l_encoder' % trueVal.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("l: "))
                                     
@@ -90,7 +93,7 @@ class SerialCommunicator(Node):
                                 try:
                                     trueValF.data = float(val.strip("imu: "))
                                     self.imu_pub.publish(trueValF)
-                                    self.get_logger().info('Publishing: "%s" to imu' % trueValF.data)
+#                                     self.get_logger().info('Publishing: "%s" to imu' % trueValF.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not float' % val.strip("imu: "))
                             
@@ -98,7 +101,7 @@ class SerialCommunicator(Node):
                                 try:
                                     trueVal.data = int(val.strip("dist: "))
                                     self.dist_pub.publish(trueVal)
-                                    self.get_logger().info('Publishing: "%s" to dist' % trueVal.data)
+#                                     self.get_logger().info('Publishing: "%s" to dist' % trueVal.data)
                                 except:
                                     self.get_logger().info('Value Issue: "%s" not int' % val.strip("dist: "))
                             
@@ -116,6 +119,22 @@ class SerialCommunicator(Node):
                                 stateVal.data = 0
                                 self.run_state_pub.publish(stateVal)
                                 self.get_logger().info('Run_State: STOPPING')
+                            
+                            elif val.strip("-1234567890.: ") == "color":
+                                color = String()
+                                datastring = val.strip("color: ")
+                                datalist = datastring.split(":")
+                                colorlist = []
+                                for val in datalist:
+                                    try:
+                                        colorlist.append(int(val))
+                                    except:
+                                        self.get_logger().info('Failed to add "%s" to colorlist' % val)
+                                        colorlist.append(-1)
+                                color.data = repr(colorlist)
+                                self.color_pub.publish(color)
+                                self.get_logger().info('Publishing: "%s" to color' % color.data)
+                               
 
             time.sleep(0.01)
         except serial.SerialException as e:
