@@ -11,7 +11,6 @@ class NaviPathPlanning(Node):
         super().__init__("pathi")
 
         # Initialize path planning publisher
-        super().__init__('instructions_publisher')
         self.instructions_pub = self.create_publisher(String, 'instructions', 10)
 
         # Initialize subscriptions

@@ -15,30 +15,36 @@ class NaviAvoidance(Node):
         self.navi_color_ = self.create_subscription(String, 'color', self.color_callback, 10) 
 
         # Initialize run state publisher
-        super().__init__('run_state_publisher')
         self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
 
+        # Initialize outgoing mail publisher
+        self.outgoing_mail_pub = self.create_publisher(Int64, 'outgoing_mail', 10)
+
         # Initialize path planning publisher
-        super().__init__('path_planning_publisher')
         self.path_planning_pub = self.create_publisher(Int64, 'path_planning', 10)
 
         # Variables
+        self.curr_stopped = False
+        self.fire_detected = False
         self.curr_dist = 0
-        self.min_dist = 170
+        self.min_dist = 50
 
         # Generate instruction set
         path_state = Int64()
         path_state.data = 0
         self.path_planning_pub.publish(path_state)
         
+        self.get_logger().set_level(rclpy.logging.LoggingSeverity.DEBUG)
         self.get_logger().info("Obstacle Avoidance Online")
 
     def dist_callback(self, msg):
-        self.get_logger().info('Received Message: %s' % msg.data)
+#         self.get_logger().info('Received Message: %s' % msg.data)
         self.curr_dist = msg.data
 
-        if self.curr_dist < self.min_dist:
+        if self.curr_dist < self.min_dist and not self.curr_stopped:
             # Stop & recalibrate pathing
+            self.curr_stopped = True
+            
             state = Int64()
             state.data = 0
             self.run_state_pub.publish(state)
@@ -48,13 +54,29 @@ class NaviAvoidance(Node):
             self.path_planning_pub.publish(path_state)
 
             self.get_logger().info('OBSTACLE DETECTED, STOPPING & RECALIBRATING MAP')
+        
+        elif self.curr_stopped and self.curr_dist > self.min_dist:
+            self.curr_stopped = False
 
     def color_callback(self, msg):
-        self.get_logger().info('Received Message: %s' % msg.data)
+#         self.get_logger().info('Received Message: %s' % msg.data)
         colorlist = eval(msg.data)
-        if (colorlist[0] > 4*((colorlist[1] + colorlist[2])/2)):
+        if (colorlist[0] > 4*((colorlist[1] + colorlist[2])/2) and not self.fire_detected):
             self.get_logger().info('AAAAAAAAAAAAAAAAAA FIREEEEEEEEEEEEEEE')
-        self.get_logger().info('Received Color: %s' % colorlist)
+            self.fire_detected = True
+            
+            state = Int64()
+            state.data = 0
+            self.run_state_pub.publish(state)
+            
+            mail = Int64()
+            mail.data = 1
+            self.outgoing_mail_pub.publish(mail)
+            
+        elif (self.fire_detected and colorlist[0] <= 2*((colorlist[1] + colorlist[2])/2)):
+            self.get_logger().info('Oh, the fire\'s gone')
+            self.fire_detected = False
+#         self.get_logger().info('Received Color: %s' % colorlist)
 
 
 def main(args=None):

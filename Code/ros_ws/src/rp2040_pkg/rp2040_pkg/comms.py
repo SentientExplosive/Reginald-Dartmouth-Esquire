@@ -8,24 +8,24 @@ import time
 
 class SerialCommunicator(Node):
     def __init__(self):
+        super().__init__('Comms')
         # Initialize right encoder publisher
-        super().__init__('right_encoder_publisher')
         self.r_encoder_pub = self.create_publisher(Int64, 'r_encoder', 10)
 
         # Initialize left encoder publisher
-        super().__init__('left_encoder_publisher')
         self.l_encoder_pub = self.create_publisher(Int64, 'l_encoder', 10)
 
         # Initialize imu publisher
-        super().__init__('imu_publisher')
         self.imu_pub = self.create_publisher(Float32, 'imu', 10)
         
         # Initialize run_state publisher
-        super().__init__('run_state_publisher')
         self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
         
-        super().__init__('color_publisher')
+        # Initialize color publisher
         self.color_pub = self.create_publisher(String, 'color', 10)
+        
+        # Initialize subscriptions
+        self.outgoing_mail_ = self.create_subscription(Int64, 'outgoing_mail', self.send_serial_data, 10)
         
         # Send default state value (0) to the topic
         stateVal = Int64()
@@ -33,7 +33,7 @@ class SerialCommunicator(Node):
         self.run_state_pub.publish(stateVal)
 
         # Initialize dist publisher
-        super().__init__('dist_publisher')
+#         super().__init__('dist_publisher')
         self.dist_pub = self.create_publisher(Int64, 'dist', 10)
 
         # Initialize the serial port
@@ -140,6 +140,21 @@ class SerialCommunicator(Node):
         except serial.SerialException as e:
             self.get_logger().info("Error: %s" % e)
             self.port_open = False
+
+    def send_serial_data(self, msg):
+        mailval = msg.data
+        message = "ping;"
+        if (mailval == 1): # Fire Detected, send message to flash blue on the 2040
+            message = "fire;"
+            try:
+                self.ser.write(message.encode('utf-8'))
+            except:
+                self.get_logger().info("Error when trying to send message: %s" % message)
+        else:
+            try:
+                self.ser.write(message.encode('utf-8'))
+            except:
+                self.get_logger().info("Error when trying to send message: %s" % message)
 
     def destroy_node(self):
         self.ser.close()
