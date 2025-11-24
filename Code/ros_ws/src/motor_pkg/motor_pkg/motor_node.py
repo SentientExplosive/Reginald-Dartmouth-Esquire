@@ -10,31 +10,28 @@ class DualMotorController(Node):
         super().__init__('dual_motor_controller')
 
         # Motor 1 GPIO Setup
-        self.pwm_pin_motor1 = PWMOutputDevice(12)  # PWM pin for motor 1
-        self.dir_pin_motor1 = OutputDevice(24)        # Direction pin for motor 1
-        self.motor1slp = OutputDevice(22) # You snooze you lose
+        self.pwm_pin_motor1 = PWMOutputDevice(12) # PWM pin for motor 1
+        self.dir_pin_motor1 = OutputDevice(24)    # Direction pin for motor 1
+        self.motor1slp = OutputDevice(22)         # You snooze you lose
 
         # Motor 2 GPIO Setup
-        self.pwm_pin_motor2 = PWMOutputDevice(13)  # PWM pin for motor 2
-        self.dir_pin_motor2 = OutputDevice(25)        # Direction pin for motor 2
-        self.motor2slp = OutputDevice(23) # You snooze you lose
+        self.pwm_pin_motor2 = PWMOutputDevice(13) # PWM pin for motor 2
+        self.dir_pin_motor2 = OutputDevice(25)    # Direction pin for motor 2
+        self.motor2slp = OutputDevice(23)         # You snooze you lose
 
         # Subscription to custom motor command topic
-        self.subscription = self.create_subscription(
-            Twist,
-            '/cmd_vel',
-            self.motor_command_callback,
-            10
-        )
+        self.subscription = self.create_subscription(Twist, '/cmd_vel', self.motor_command_callback, 10)
         
         # Subscription to run_state
         self.motor_run_state_ = self.create_subscription(Int64, 'run_state', self.run_state_callback, 10)
         
-
         self.get_logger().info("Dual Motor Controller Node started.")
 
-    def run_state_callback(self, msg):
+
+    def run_state_callback(self, msg): # Runs every time a new state is sent to 'run_state' topic
+        # Checks if the state sent is 0, if so, engages breaking function on motors and stops them
         if (msg.data == 0):
+            # Reverse direction first
             self.dir_pin_motor1.toggle()
             self.dir_pin_motor2.toggle()
             self.pwm_pin_motor1.on()
@@ -42,7 +39,9 @@ class DualMotorController(Node):
             self.pwm_pin_motor2.on()
             self.motor2slp.on()
             
-            time.sleep(0.08)
+            time.sleep(0.08) # Slight time delay to allow the reversed direction of the motors to cancel out the motor movement
+            
+            # Shut motors off
             self.pwm_pin_motor1.off()
             self.motor1slp.off()
             self.pwm_pin_motor2.off()
@@ -50,56 +49,56 @@ class DualMotorController(Node):
   
     def motor_command_callback(self, msg):
         # Motor 1
-        self.pwm_pin_motor1.value = abs(msg.linear.x)
-
-        # direction_motor1 = msg.motor1_direction
-        self.get_logger().info(f"Speed_a={self.pwm_pin_motor1.value}")
+        self.pwm_pin_motor1.value = abs(msg.linear.x) # X value in message data represents motor 1
+        # self.get_logger().info(f"Speed_a={self.pwm_pin_motor1.value}") # Debug output message
         
-
         # Clamp motor 1 speed
         self.pwm_pin_motor1.value = max(min(self.pwm_pin_motor1.value, 1.0), -1.0)
-        self.get_logger().info(f"Speed_b={self.pwm_pin_motor1.value}")
+        # self.get_logger().info(f"Speed_b={self.pwm_pin_motor1.value}") # Debug output message
+        
         # Turn the damn thing on
         if self.pwm_pin_motor1.value == 0:
-#             self.pwm_pin_motor1.off()
+#             self.pwm_pin_motor1.off() # Use of this causes the pin value to be set to 1 or 0, essentially putting it at max power or off, DO NOT use this
             self.motor1slp.off()
         else:
-#             self.pwm_pin_motor1.on()
+#             self.pwm_pin_motor1.on() # Same thing as above
             self.motor1slp.on()
         
+        # Set direction based on whether the value for motor 1 in msg is positive or negative
         if msg.linear.x > 0:
             self.dir_pin_motor1.on()  # Forward
         else:
-            self.dir_pin_motor1.off()  # Reverse
+            self.dir_pin_motor1.off() # Reverse
+
 
         # Motor 2
         self.pwm_pin_motor2.value = abs(msg.linear.z)
-        
-        self.get_logger().info(f"Min: {min(self.pwm_pin_motor2.value, 1.0)}")
-        self.get_logger().info(f"Max of min: {max(min(self.pwm_pin_motor2.value, 1.0), -1.0)}")
+        # self.get_logger().info(f"Min: {min(self.pwm_pin_motor2.value, 1.0)}") # Debug output message
+        # self.get_logger().info(f"Max of min: {max(min(self.pwm_pin_motor2.value, 1.0), -1.0)}") # Debug output message
 
         # Clamp motor 2 speed
         self.pwm_pin_motor2.value = max(min(self.pwm_pin_motor2.value, 1.0), -1.0)
-        self.get_logger().info(f"PWM VAL: {self.pwm_pin_motor2.value}")
+        # self.get_logger().info(f"PWM VAL: {self.pwm_pin_motor2.value}") # Debug output message
+        
         # Turn the damn thing on
         if self.pwm_pin_motor2.value == 0:
-#             self.pwm_pin_motor2.off()
+#             self.pwm_pin_motor2.off() # Same case as with motor 1, don't use this
             self.motor2slp.off()
         else:
 #             self.pwm_pin_motor2.on()
             self.motor2slp.on()
         
+        # Set direction based on whether the value for motor 2 in msg is positive or negative
         if msg.linear.z > 0:
             self.dir_pin_motor2.on()  # Forward
         else:
-            self.dir_pin_motor2.off()  # Reverse
-            
-        self.get_logger().info(f"PWM VAL AGAIN: {self.pwm_pin_motor2.value}")
-
+            self.dir_pin_motor2.off() # Reverse
+        
+        # Output the speeds the motors were set to
         self.get_logger().info(f"\nMotor 1 Command: Speed={self.pwm_pin_motor1.value}\nMotor 2 Command: Speed={self.pwm_pin_motor2.value}")
         
 
-    def destroy_node(self):
+    def destroy_node(self): # Destroy all node instances at end of program execution
         self.pwm_pin_motor1.close()
         self.dir_pin_motor1.close()
         self.pwm_pin_motor2.close()
