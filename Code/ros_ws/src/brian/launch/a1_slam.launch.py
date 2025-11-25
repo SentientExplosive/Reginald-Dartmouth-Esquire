@@ -1,12 +1,11 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import PathJoinSubstitution, ThisLaunchFileDir
+from launch.substitutions import PathJoinSubstitution, FindPackageShare
 
 def generate_launch_description():
     
     slam_params = PathJoinSubstitution([
-        ThisLaunchFileDir(),
-        '..',
+        FindPackageShare('brian'),
         'config',
         'mapper_params_online_sync.yaml'
     ])
