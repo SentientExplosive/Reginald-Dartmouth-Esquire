@@ -1,6 +1,0 @@
-source;share/regi_interfaces/hook/pythonpath.ps1
-source;share/regi_interfaces/hook/pythonpath.dsv
-source;share/regi_interfaces/hook/pythonpath.sh
-source;share/regi_interfaces/hook/ament_prefix_path.ps1
-source;share/regi_interfaces/hook/ament_prefix_path.dsv
-source;share/regi_interfaces/hook/ament_prefix_path.sh

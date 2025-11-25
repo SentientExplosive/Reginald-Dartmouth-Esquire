@@ -1,4 +1,0 @@
-float64 motor1_speed
-bool motor1_direction
-float64 motor2_speed
-bool motor2_direction
