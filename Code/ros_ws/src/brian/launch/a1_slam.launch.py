@@ -1,15 +1,18 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import PathJoinSubstitution
-from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
+import os
+
 
 def generate_launch_description():
     
-    slam_params = PathJoinSubstitution([
-        FindPackageShare('brian'),
+    slam_params = os.path.join(
+        get_package_share_directory('brian'),
         'config',
         'mapper_params_online_sync.yaml'
-    ])
+    )
+    
+    print(slam_params)
     
     return LaunchDescription([
         
@@ -31,10 +34,7 @@ def generate_launch_description():
             package='slam_toolbox',
             executable='sync_slam_toolbox_node',
             name='slam_toolbox',
-            parameters=[slam_params, {'mode': 'mapping'}],
-            remappings=[
-                ('scan','/scan')
-                ],
+            parameters=[slam_params],
             output='screen'
         )
     ])
