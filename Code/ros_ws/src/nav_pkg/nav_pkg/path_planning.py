@@ -28,14 +28,15 @@ import time
 
 # Instructions processing
 # [X] - Initial instruction set for start of challenge 2
-# [ ] - Refresh instructions after adding obstacles & updating map
+# [X] - Refresh instructions after adding obstacles & updating map
 #   [X] - Need to give preference for moving around the obstacle to get to the line, likely with a right movement bias (will happen naturally as coding is done)
-#   [ ] - Move in direction of decreasing values, unless on the goal line, in that case move in the default direction (east) --> might be able to nab this from wavefront
-#     [ ] - If reconnected to the goal line after hitting obstacle, check if there is any spots that were missed and get those before continuing on (though technically the fire should be right behind the obstacle so maybe just do a sweep of the area until it's found)
-# [ ] - Likely try to overshoot the obstacle a bit (move 5-7 squares at a time) After moving past the obstacle turn and move back towards the next spot after the obstacle
+#   [X] - Move in direction of decreasing values, unless on the goal line, in that case move in the default direction (east) --> might be able to nab this from wavefront
+#     [X] - If reconnected to the goal line after hitting obstacle, check if there is any spots that were missed and get those before continuing on (though technically the fire should be right behind the obstacle so maybe just do a sweep of the area until it's found)
+# [NO] - Likely try to overshoot the obstacle a bit (move 5-7 squares at a time)
+# [X] - After moving past the obstacle turn and move back towards the next spot after the obstacle
 
 # TODO 12/5
-# [ ] - Add instructions processing
+# [X] - Add instructions processing
 # [X] - Traveled distance calculation in movement.py for map updating
 # [X] - Determine how direction is given to the path planning node (keep track of direction in movement.py in a self.direc var or calculate that and send it too?)
 # [X] - print_map get_logger functionality instead of print() (otherwise it wont show up in the termial)
@@ -152,10 +153,10 @@ class NaviPathPlanning(Node):
             if (self.map.map[loc[0]+1][loc[1]] < mapval): # Search East
                 # Turn if there's a change in direction
                 if (prevDirec != 0):
-                    turnAngle = 360-90*prevDirec
-                    if (turnAngle == 360):
-                        turnAngle = 0
-                    if (turnAngle == 180):
+                    turnAngle = 360 - 90*prevDirec + self.heading
+                    if (turnAngle >= 360):
+                        turnAngle -= 360
+                    if ((360 - 90*prevDirec) == 180):
                         moveBackwards = -1
                     else:
                         self.instructions.append(f"t{turnAngle}")
@@ -166,13 +167,14 @@ class NaviPathPlanning(Node):
                 loc = [loc[0]+1,loc[1]]
 
                 repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
-                nextMapval = self.map.map[loc[0]+2][loc[1]]
+                nextMapval = self.map.map[loc[0]+1][loc[1]]
                 count = 1
                 # Check for multiple instances of the instruction
-                while (nextMapval < repMapval and loc[0]+1+count < self.map.cols):
+                while (nextMapval < repMapval and loc[0]+1 < self.map.cols):
+                    loc = [loc[0]+1,loc[1]]
                     count += 1
                     repMapval = nextMapval
-                    nextMapval = self.map.map[loc[0]+1+count][loc[1]]
+                    nextMapval = self.map.map[loc[0]+1][loc[1]]
                     
                 # Add instruction 
                 dist = 0.1 * count
@@ -181,10 +183,10 @@ class NaviPathPlanning(Node):
             elif (self.map.map[loc[0]][loc[1]+1] < mapval): # Search South
                 # Turn if there's a change in direction
                 if (prevDirec != 3):
-                    turnAngle = 360-90*prevDirec
-                    if (turnAngle == 360):
-                        turnAngle = 0
-                    if (turnAngle == 180):
+                    turnAngle = 360 - 90*prevDirec + self.heading
+                    if (turnAngle >= 360):
+                        turnAngle -= 360
+                    if ((360 - 90*prevDirec) == 180):
                         moveBackwards = -1
                     else:
                         self.instructions.append(f"t{turnAngle}")
@@ -195,25 +197,26 @@ class NaviPathPlanning(Node):
                 loc = [loc[0],loc[1]+1]
 
                 repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
-                nextMapval = self.map.map[loc[0]][loc[1]+2]
+                nextMapval = self.map.map[loc[0]][loc[1]+1]
                 count = 1
                 # Check for multiple instances of the instruction
-                while (nextMapval < repMapval and loc[1]+1+count < self.map.cols):
+                while (nextMapval < repMapval and loc[1]+1 < self.map.cols):
+                    loc = [loc[0],loc[1]+1]
                     count += 1
                     repMapval = nextMapval
-                    nextMapval = self.map.map[loc[0]][loc[1]+1+count]
+                    nextMapval = self.map.map[loc[0]][loc[1]+1]
                     
                 # Add instruction 
                 dist = 0.1 * count
                 self.instructions.append(f"d{dist*moveBackwards}")
-                
+
             elif (self.map.map[loc[0]-1][loc[1]] < mapval): # Search West
                 # Turn if there's a change in direction
                 if (prevDirec != 2):
-                    turnAngle = 360-90*prevDirec
-                    if (turnAngle == 360):
-                        turnAngle = 0
-                    if (turnAngle == 180):
+                    turnAngle = 360 - 90*prevDirec + self.heading
+                    if (turnAngle >= 360):
+                        turnAngle -= 360
+                    if ((360 - 90*prevDirec) == 180):
                         moveBackwards = -1
                     else:
                         self.instructions.append(f"t{turnAngle}")
@@ -224,13 +227,14 @@ class NaviPathPlanning(Node):
                 loc = [loc[0]-1,loc[1]]
 
                 repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
-                nextMapval = self.map.map[loc[0]-2][loc[1]]
+                nextMapval = self.map.map[loc[0]-1][loc[1]]
                 count = 1
                 # Check for multiple instances of the instruction
-                while (nextMapval < repMapval and loc[0]-1-count > 0):
+                while (nextMapval < repMapval and loc[0]-1 > 0):
+                    loc = [loc[0]-1,loc[1]]
                     count += 1
                     repMapval = nextMapval
-                    nextMapval = self.map.map[loc[0]-1-count][loc[1]]
+                    nextMapval = self.map.map[loc[0]-1][loc[1]]
                     
                 # Add instruction 
                 dist = 0.1 * count
@@ -239,10 +243,10 @@ class NaviPathPlanning(Node):
             elif (self.map.map[loc[0]][loc[1]-1] < mapval): # Search North
                 # Turn if there's a change in direction
                 if (prevDirec != 1):
-                    turnAngle = 360-90*prevDirec
-                    if (turnAngle == 360):
-                        turnAngle = 0
-                    if (turnAngle == 180):
+                    turnAngle = 360 - 90*prevDirec + self.heading
+                    if (turnAngle >= 360):
+                        turnAngle -= 360
+                    if ((360 - 90*prevDirec) == 180):
                         moveBackwards = -1
                     else:
                         self.instructions.append(f"t{turnAngle}")
@@ -253,24 +257,52 @@ class NaviPathPlanning(Node):
                 loc = [loc[0],loc[1]-1]
 
                 repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
-                nextMapval = self.map.map[loc[0]][loc[1]-2]
+                nextMapval = self.map.map[loc[0]][loc[1]-1]
                 count = 1
                 # Check for multiple instances of the instruction
-                while (nextMapval < repMapval and loc[1]-1-count > 0):
+                while (nextMapval < repMapval and loc[1]-1 > 0):
+                    loc = [loc[0],loc[1]-1]
                     count += 1
                     repMapval = nextMapval
-                    nextMapval = self.map.map[loc[0]][loc[1]-1-count]
+                    nextMapval = self.map.map[loc[0]][loc[1]-1]
                     
                 # Add instruction 
                 dist = 0.1 * count
                 self.instructions.append(f"d{dist*moveBackwards}")
 
-
-
-
         # Once back on the line, check for 1s in the west direction & move west if there are any
+        if self.map.map[loc[0]-1][loc[1]] == 1:
+            # Angle Turn
+            turnAngle = 180 + self.heading
+            if (turnAngle >= 360):
+                turnAngle -= 360
+            self.instructions.append(f"t{turnAngle}")
 
-        # Turn around and move east again (?)
+            # Distance movement
+            repMapval = self.map.map[loc[0]-1][loc[1]] # repetitive map val variable for checking repeated movement in the same direction
+            loc = [loc[0]-1,loc[1]]
+            nextMapval = self.map.map[loc[0]-1][loc[1]]
+            count = 1
+            # Check for multiple instances of the instruction
+            while (nextMapval == repMapval and loc[0]-1 > 0):
+                loc = [loc[0]-1,loc[1]]
+                count += 1
+                repMapval = nextMapval
+                nextMapval = self.map.map[loc[0]-1][loc[1]]
+                
+            # Add instruction 
+            dist = 0.1 * count
+            self.instructions.append(f"d{dist}")
+
+            # Turn around and move east again (?) might just have it so that it continues back to the obstacle and then moves around the area until it finds the fire
+            self.instructions.append(f"d-0.1")
+            self.instructions.append(f"t{self.heading}")
+            self.instructions.append(f"d{20}")
+        else:
+            # Turn to face east
+            self.instructions.append(f"t{self.heading}")
+            # Continue forever :D
+            self.instructions.append(f"d{20}")
 
         # Place square of 1s if moving west and found an obstacle (?)
 
