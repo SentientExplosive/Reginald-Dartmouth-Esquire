@@ -20,9 +20,6 @@ class NaviAvoidance(Node):
         # Initialize outgoing mail publisher
         self.outgoing_mail_pub = self.create_publisher(Int64, 'outgoing_mail', 10)
 
-        # Initialize path planning publisher
-        self.path_planning_pub = self.create_publisher(Int64, 'path_planning', 10)
-
         # Variables
         self.curr_stopped = False
         self.fire_detected = False
@@ -46,12 +43,8 @@ class NaviAvoidance(Node):
             self.curr_stopped = True
             
             state = Int64()
-            state.data = 0
+            state.data = 3
             self.run_state_pub.publish(state)
-
-            path_state = Int64()
-            path_state.data = 1
-            self.path_planning_pub.publish(path_state)
 
             self.get_logger().info('OBSTACLE DETECTED, STOPPING & RECALIBRATING MAP')
         
@@ -66,7 +59,7 @@ class NaviAvoidance(Node):
             self.fire_detected = True
             
             state = Int64()
-            state.data = 0
+            state.data = 4
             self.run_state_pub.publish(state)
             
             mail = Int64()

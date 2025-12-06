@@ -61,10 +61,13 @@ class NaviMovement(Node):
     def __init__(self):
         super().__init__("navi")
         
-        #Publisher to Twist
+        # Publisher to Twist
         self.navi_pub_ = self.create_publisher(Twist, "/cmd_vel", 10)
+
+        # Publisher to Path Planning
+        self.path_planning_pub = self.create_publisher(String, 'path_planning', 10)
         
-        #Subscribe to necessary topics
+        # Subscribe to necessary topics
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
         self.navi_imu_ = self.create_subscription(Float32, 'imu', self.imu_callback, 10)
@@ -102,14 +105,20 @@ class NaviMovement(Node):
         self.zero_to_angle = 0.0
         self.temp_turn_to_angle = 0.0
 
+        # Direction that Reginald is facing according to the map (Challenge 2 variable)
+        # 0 = East, 1 = North, 2 = West, 3 = South
+        self.direc = 0 
+        self.east = 0 # the angle representing "east"
+
         # Instructions
         self.instructions = []
         self.curr_instruction = 0
 
         # Challenge variables
-        self.challenge = 1 # 1 by default, can choose challenge 1-4
+        self.challenge = 2 # 1 by default, can choose challenge 1-4
         self.run_state = 0
 
+        # State variables for controlling what type of movement is happening
         self.done = False
         self.move_dist = False
         self.turn = False
@@ -140,7 +149,22 @@ class NaviMovement(Node):
 
                 self.turn = True
                 self.move_dist = False
-            
+
+                # Challenge 2 self.direc updating
+                angle = self.target_heading - self.east
+                if (angle % 90 == 0):
+                    if (angle == 0): # east
+                        self.direc = 0
+                    elif (angle == 90): # south
+                        self.direc = 3
+                    elif (angle == 180): # west
+                        self.direc = 2
+                    elif (angle == 270): # north
+                        self.direc = 1
+            elif i[0] == "a": # Heading angle for challenge 2, passed from the path planning file
+                self.east= float(i.strip("t"))
+                self.done = True
+
             # Set starting encoder values
             self.l_start_encoderval = self.encoder_left
             self.r_start_encoderval = self.encoder_right
@@ -184,7 +208,7 @@ class NaviMovement(Node):
             cmd.linear.z = 0.0
             self.navi_pub_.publish(cmd)
         
-        if self.run_state == 2:
+        elif self.run_state == 2:
             # Reset target angle and distance variables
             self.target_distance = 0.0    # meters
             self.target_heading = 0.0     # radians
@@ -213,6 +237,45 @@ class NaviMovement(Node):
             # Load first instruction
             self.execute_next_instruction()
         
+        elif self.run_state == 3: # Obstacle detected
+            self.obstacle_detected = True
+
+            cmd = Twist()
+            cmd.linear.x = 0.0
+            cmd.linear.z = 0.0
+            self.navi_pub_.publish(cmd)
+            
+            path_state = String()
+            if self.turn:
+                traveled_dist = 0
+            elif self.move_dist:
+                encoder_diff_l = self.encoder_left - self.l_start_encoderval
+                encoder_diff_r = self.encoder_right - self.r_start_encoderval
+                traveled_dist = int(1000 * ((encoder_diff_l + encoder_diff_r) / 2) / self.ticks_per_meter) # 1000 * average encoder count / ticks_per_meter to get distance traveled in mm
+            data = [1, traveled_dist, self.direc] # Sending 1 (obstacle state) and distance traveled to the path planning module
+            path_state.data = repr(data)
+            self.path_planning_pub.publish(path_state)
+        
+        elif self.run_state == 4: # Fire detected
+            self.done = True
+            self.curr_instruction = len(self.instructions) # forces the program to be in a permanent done state (index past end of instruction list)
+
+            cmd = Twist()
+            cmd.linear.x = 0.0
+            cmd.linear.z = 0.0
+            self.navi_pub_.publish(cmd)
+
+            path_state = String()
+            if self.turn:
+                traveled_dist = 0
+            elif self.move_dist:
+                encoder_diff_l = self.encoder_left - self.l_start_encoderval
+                encoder_diff_r = self.encoder_right - self.r_start_encoderval
+                traveled_dist = int(1000 * ((encoder_diff_l + encoder_diff_r) / 2) / self.ticks_per_meter) # 1000 * average encoder count / ticks_per_meter to get distance traveled in mm
+            data = [2, traveled_dist, self.direc] # Sending 2 (fire state) and distance traveled to the path planning module
+            path_state.data = repr(data)
+            self.path_planning_pub.publish(path_state)
+
     def instructions_callback(self, msg):
         self.instructions = eval(msg.data)
         self.curr_instruction = 0
@@ -307,8 +370,16 @@ class NaviMovement(Node):
         if self.run_state == 0 or self.yaw is None:
             return
         
+        if (self.done):
+            cmd = Twist()
+            cmd.linear.x = 0.0
+            cmd.linear.z = 0.0
+            self.navi_pub_.publish(cmd)
+            time.sleep(1)
+            self.execute_next_instruction()
+            time.sleep(2)
+        
         if self.obstacle_detected:
-
             self.obstacle_detected = False
         else:
             self.update_motor_speed()

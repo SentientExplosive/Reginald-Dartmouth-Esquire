@@ -1,7 +1,7 @@
-# import rclpy
-# from rclpy.node import Node
-# from std_msgs.msg import Int64
-# from std_msgs.msg import String
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Int64
+from std_msgs.msg import String
 
 import math
 import time
@@ -27,18 +27,27 @@ import time
 # - Move Backwards (do it when you're in an obstacle)
 
 # Instructions processing
+# [X] - Initial instruction set for start of challenge 2
 # [ ] - Refresh instructions after adding obstacles & updating map
-#   [ ] - Need to give preference for moving around the obstacle to get to the line, likely with a right movement bias
+#   [X] - Need to give preference for moving around the obstacle to get to the line, likely with a right movement bias (will happen naturally as coding is done)
 #   [ ] - Move in direction of decreasing values, unless on the goal line, in that case move in the default direction (east) --> might be able to nab this from wavefront
 #     [ ] - If reconnected to the goal line after hitting obstacle, check if there is any spots that were missed and get those before continuing on (though technically the fire should be right behind the obstacle so maybe just do a sweep of the area until it's found)
 # [ ] - Likely try to overshoot the obstacle a bit (move 5-7 squares at a time) After moving past the obstacle turn and move back towards the next spot after the obstacle
+
+# TODO 12/5
+# [ ] - Add instructions processing
+# [X] - Traveled distance calculation in movement.py for map updating
+# [X] - Determine how direction is given to the path planning node (keep track of direction in movement.py in a self.direc var or calculate that and send it too?)
+# [X] - print_map get_logger functionality instead of print() (otherwise it wont show up in the termial)
+#   [ ] - Test to make sure this actually works (no clue if it will)
+# [ ] - Begin testing Challenge 2 code
 
 # Reginald measurements: 220mm x 288mm
 # Grid Square size: 100mm x 100mm (or if needed, 50mm x 50mm for even higher resolution)
 
 # BIG IDEA: Orient the map so that the goal line is always straight? Could help out quite a bit rather than trying to path it out diagonally.
 
-class NaviPathPlanning():#Node):
+class NaviPathPlanning(Node):
     def __init__(self):
         super().__init__("pathi")
 
@@ -46,51 +55,77 @@ class NaviPathPlanning():#Node):
         self.instructions_pub = self.create_publisher(String, 'instructions', 10)
 
         # Initialize subscriptions
-        self.path_planning_ = self.create_subscription(Int64, 'path_planning', self.path_planning_callback, 10)
+        self.path_planning_ = self.create_subscription(String, 'path_planning', self.path_planning_callback, 10)
         
+        # Path Planning Variables
+        self.instructions = []
+
+        # Challenge number
+        self.challenge = 2
+
+        # Challenge 1 stuff
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
         self.waypoints = [(352,1.92),(60,0.94)]
 
-        # Path Planning Variables
-        self.instructions = []
-        
+        # Challenge 2 Stuff
+        # Map for Path Planning
+        self.map = Map(debug=False)
+
+        # Given heading
+        self.heading = 240
+
+        # Online message
         self.get_logger().info("Path Planning Online")
 
     def path_planning_callback(self, msg):
-        state = msg.data
+        stateList = eval(msg.data)
+        state = stateList[0]
         if (state == 0): # Create initial instruction set & map
             self.generate_instructions()
         elif (state == 1): # Update map & instructions for instances where an obstacle is detected
-            self.update_instructions()
+            self.obstacle(stateList[1], stateList[2])
+        elif (state == 2): # Update map & return empty instruction set
+            self.fire(stateList[1], stateList[2])
     
     def generate_instructions(self):
-        # Vector values to find the correct direction and distance required to go back to the start
-        vector_vals = []
-        
-        # Converts the waypoints into a list of instructions
-        for waypoint in self.waypoints:
-            self.instructions.append(f"t{waypoint[0]}")
-            self.instructions.append(f"d{waypoint[1]}")
-            x = waypoint[1] * math.cos((waypoint[0])*math.pi/180)
-            y = waypoint[1] * math.sin(waypoint[0]*math.pi/180)
-            self.get_logger().info(f"y: {y}")
-            self.get_logger().info(f"x: {x}")
-            vector_vals.append((x,y))
-        
-        # Calculate resultant vector
-        total_x = 0
-        total_y = 0
-        for vec in vector_vals:
-            total_x += vec[0]
-            total_y += vec[1]
-        self.get_logger().info(f"total_y: {total_y}")
-        self.get_logger().info(f"total_x: {total_x}")
-        angle = math.atan2(-total_y, -total_x) * (180 / math.pi)
-        if (angle < 0):
-            angle += 360
-        dist = math.sqrt((total_x)**2 + (total_y)**2)
-        self.instructions.append(f"t{angle}")
-        self.instructions.append(f"d{dist}")
+        if self.challenge == 1: # Challenge 1 code
+            # Vector values to find the correct direction and distance required to go back to the start
+            vector_vals = []
+            
+            # Converts the waypoints into a list of instructions
+            for waypoint in self.waypoints:
+                self.instructions.append(f"t{waypoint[0]}")
+                self.instructions.append(f"d{waypoint[1]}")
+                x = waypoint[1] * math.cos((waypoint[0])*math.pi/180)
+                y = waypoint[1] * math.sin(waypoint[0]*math.pi/180)
+                self.get_logger().info(f"y: {y}")
+                self.get_logger().info(f"x: {x}")
+                vector_vals.append((x,y))
+            
+            # Calculate resultant vector
+            total_x = 0
+            total_y = 0
+            for vec in vector_vals:
+                total_x += vec[0]
+                total_y += vec[1]
+            self.get_logger().info(f"total_y: {total_y}")
+            self.get_logger().info(f"total_x: {total_x}")
+            angle = math.atan2(-total_y, -total_x) * (180 / math.pi)
+            if (angle < 0):
+                angle += 360
+            dist = math.sqrt((total_x)**2 + (total_y)**2)
+            self.instructions.append(f"t{angle}")
+            self.instructions.append(f"d{dist}")
+
+        if self.challenge == 2: # Challenge 2 code
+            # Initial intructions for the start
+            # Need to add angle to turn to to make map line up + send the angle for east (same angle)
+            self.instructions.append(f"a{self.heading}") # allows the heading angle to be passed to the movement file
+            self.instructions.append(f"t{self.heading}")
+            # Move forward very far lmao
+            self.instructions.append(f"d{20}")
+            # Aaaaand that's it, just those two things
+            self.get_logger().info(self.map.mapPrintout)
 
         self.get_logger().info(f"Instructions: {self.instructions}")
         
@@ -98,13 +133,172 @@ class NaviPathPlanning():#Node):
         instructions = String()
         instructions.data = repr(self.instructions)
         self.instructions_pub.publish(instructions)
-        # self.execute_next_instruction()
     
-    def update_instructions(self):
-        pass
+    def obstacle(self, dist, direc):
+        # Update the map
+        self.map.update_loc(dist, direc)
+        self.map.add_obstacle(direc)
+        self.get_logger().info(self.map.mapPrintout)
+        
+        # Create new instructions based on the current map
+        self.instructions = []
+
+        # Move in direction of decreasing values
+        loc = self.map.curr_loc
+        mapval = self.map.map[loc[0]][loc[1]]
+        prevDirec = direc
+        while (mapval != 1):
+            moveBackwards = 1
+            if (self.map.map[loc[0]+1][loc[1]] < mapval): # Search East
+                # Turn if there's a change in direction
+                if (prevDirec != 0):
+                    turnAngle = 360-90*prevDirec
+                    if (turnAngle == 360):
+                        turnAngle = 0
+                    if (turnAngle == 180):
+                        moveBackwards = -1
+                    else:
+                        self.instructions.append(f"t{turnAngle}")
+                    prevDirec = 0
+                
+                # Change mapval & loc
+                mapval = self.map.map[loc[0]+1][loc[1]]
+                loc = [loc[0]+1,loc[1]]
+
+                repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
+                nextMapval = self.map.map[loc[0]+2][loc[1]]
+                count = 1
+                # Check for multiple instances of the instruction
+                while (nextMapval < repMapval and loc[0]+1+count < self.map.cols):
+                    count += 1
+                    repMapval = nextMapval
+                    nextMapval = self.map.map[loc[0]+1+count][loc[1]]
+                    
+                # Add instruction 
+                dist = 0.1 * count
+                self.instructions.append(f"d{dist*moveBackwards}")
+
+            elif (self.map.map[loc[0]][loc[1]+1] < mapval): # Search South
+                # Turn if there's a change in direction
+                if (prevDirec != 3):
+                    turnAngle = 360-90*prevDirec
+                    if (turnAngle == 360):
+                        turnAngle = 0
+                    if (turnAngle == 180):
+                        moveBackwards = -1
+                    else:
+                        self.instructions.append(f"t{turnAngle}")
+                    prevDirec = 3
+                
+                # Change mapval & loc
+                mapval = self.map.map[loc[0]][loc[1]+1]
+                loc = [loc[0],loc[1]+1]
+
+                repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
+                nextMapval = self.map.map[loc[0]][loc[1]+2]
+                count = 1
+                # Check for multiple instances of the instruction
+                while (nextMapval < repMapval and loc[1]+1+count < self.map.cols):
+                    count += 1
+                    repMapval = nextMapval
+                    nextMapval = self.map.map[loc[0]][loc[1]+1+count]
+                    
+                # Add instruction 
+                dist = 0.1 * count
+                self.instructions.append(f"d{dist*moveBackwards}")
+                
+            elif (self.map.map[loc[0]-1][loc[1]] < mapval): # Search West
+                # Turn if there's a change in direction
+                if (prevDirec != 2):
+                    turnAngle = 360-90*prevDirec
+                    if (turnAngle == 360):
+                        turnAngle = 0
+                    if (turnAngle == 180):
+                        moveBackwards = -1
+                    else:
+                        self.instructions.append(f"t{turnAngle}")
+                    prevDirec = 2
+                
+                # Change mapval & loc
+                mapval = self.map.map[loc[0]-1][loc[1]]
+                loc = [loc[0]-1,loc[1]]
+
+                repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
+                nextMapval = self.map.map[loc[0]-2][loc[1]]
+                count = 1
+                # Check for multiple instances of the instruction
+                while (nextMapval < repMapval and loc[0]-1-count > 0):
+                    count += 1
+                    repMapval = nextMapval
+                    nextMapval = self.map.map[loc[0]-1-count][loc[1]]
+                    
+                # Add instruction 
+                dist = 0.1 * count
+                self.instructions.append(f"d{dist*moveBackwards}")
+
+            elif (self.map.map[loc[0]][loc[1]-1] < mapval): # Search North
+                # Turn if there's a change in direction
+                if (prevDirec != 1):
+                    turnAngle = 360-90*prevDirec
+                    if (turnAngle == 360):
+                        turnAngle = 0
+                    if (turnAngle == 180):
+                        moveBackwards = -1
+                    else:
+                        self.instructions.append(f"t{turnAngle}")
+                    prevDirec = 1
+                
+                # Change mapval & loc
+                mapval = self.map.map[loc[0]][loc[1]-1]
+                loc = [loc[0],loc[1]-1]
+
+                repMapval = mapval # repetitive map val variable for checking repeated movement in the same direction
+                nextMapval = self.map.map[loc[0]][loc[1]-2]
+                count = 1
+                # Check for multiple instances of the instruction
+                while (nextMapval < repMapval and loc[1]-1-count > 0):
+                    count += 1
+                    repMapval = nextMapval
+                    nextMapval = self.map.map[loc[0]][loc[1]-1-count]
+                    
+                # Add instruction 
+                dist = 0.1 * count
+                self.instructions.append(f"d{dist*moveBackwards}")
+
+
+
+
+        # Once back on the line, check for 1s in the west direction & move west if there are any
+
+        # Turn around and move east again (?)
+
+        # Place square of 1s if moving west and found an obstacle (?)
+
+        self.get_logger().info(f"Instructions: {self.instructions}")
+        
+        # Publish instruction Set
+        instructions = String()
+        instructions.data = repr(self.instructions)
+        self.instructions_pub.publish(instructions)
+
+    def fire(self, dist, direc):
+        # Update the map
+        self.map.update_loc(dist, direc)
+        self.map.add_fire()
+        self.get_logger().info(self.map.mapPrintout)
+
+        # Empty instruction set because the goal has been reached
+        self.instructions = []
+
+        self.get_logger().info(f"Instructions: {self.instructions}")
+        
+        # Publish instruction Set
+        instructions = String()
+        instructions.data = repr(self.instructions)
+        self.instructions_pub.publish(instructions)
 
 class Map(): # Class for a map
-    def __init__(self, cols=50, rows=21, size = 100):
+    def __init__(self, cols=50, rows=21, size = 100, debug=True):
         # Specific Map values
         # Other map values are obtained by starting at 3 along the goal line and incrementing upwards
         self.fire = 0
@@ -112,6 +306,10 @@ class Map(): # Class for a map
         self.searched = 45
         self.padding = 90
         self.obstacle = 99
+
+        # Debug variable, controls whether the map is printed to the terminal or not when print_map() is run
+        self.debug = debug
+        self.mapPrintout = "" # For challenge 2 outputting to terminal
         
         # Load default map
         self.defaultMapVal = 0
@@ -154,11 +352,16 @@ class Map(): # Class for a map
         self.map[loc[0]][loc[1]] = num
 
     def print_map(self): # Prints the map out
+        if not self.debug:
+            return
         for i in range(len(self.map[0])):
-            print(f"{i:<2}: ", end="")
+            line = ""
+            #print(f"{i:<2}: ", end="")
             for j in range(len(self.map)):
-                print(f"{self.map[j][i]:<2}", end=" ")
-            print()
+                line += f"{self.map[j][i]:<2}"
+                #print(f"{self.map[j][i]:<2}", end=" ")
+            self.mapPrintout += line + "\n"
+            #print()
 
     # Functions specifically for initial map generation
     def redraw_map(self):
@@ -196,7 +399,7 @@ class Map(): # Class for a map
     def draw_goal_line(self, start, end=None): # Adds the goal line to the map
         if end == None:
             end = [self.cols, start[1]]
-            print(end)
+            #print(end)
         while (start != end):
             if self.map[start[0]][start[1]] == 0:
                 self.update_square(start, self.goal_line) # add value to map
@@ -321,19 +524,19 @@ class Map(): # Class for a map
         self.redraw_map()
 
 def main(args=None):
-    map = Map()
-    map.update_loc(1600,0) # simulate moving forward 16 squares
-    map.print_map() # print da map
+    # map = Map(debug=True)
+    # map.update_loc(1600,0) # simulate moving forward 16 squares
+    # map.print_map() # print da map
 
-    # rclpy.init(args=args)
-    # node = NaviPathPlanning()
-    # try:
-    #     rclpy.spin(node)
-    # except KeyboardInterrupt:
-    #     pass
-    # finally:
-    #     node.destroy_node()
-    #     rclpy.shutdown()
+    rclpy.init(args=args)
+    node = NaviPathPlanning()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
     
 if __name__ == "__main__":
     main()
