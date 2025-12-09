@@ -7,12 +7,12 @@ import os
 def generate_launch_description():
     
     slam_params = os.path.join(
-        get_package_share_directory('brian'),
+        get_package_share_directory('slam_toolbox'),
         'config',
         'mapper_params_online_sync.yaml'
     )
     
-    print(slam_params)
+    print(f"+ | Starting: {slam_params} | +")
     
     return LaunchDescription([
         
