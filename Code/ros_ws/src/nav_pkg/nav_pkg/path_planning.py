@@ -58,11 +58,11 @@ class NaviPathPlanning(Node):
         # Initialize subscriptions
         self.path_planning_ = self.create_subscription(String, 'path_planning', self.path_planning_callback, 10)
         
-        # Path Planning Variables
-        self.instructions = []
-
         # Challenge number
         self.challenge = 2
+        
+        # Path Planning Variables
+        self.instructions = []
 
         # Challenge 1 stuff
         # Waypoint format: (heading/angle (degrees), distance (meters)) --> each waypoint is based off of the previous waypoint's position
@@ -73,7 +73,10 @@ class NaviPathPlanning(Node):
         self.map = Map(debug=False)
 
         # Given heading
-        self.heading = 240
+        self.heading = 307.5
+
+        # Generate initial instructions
+        self.generate_instructions()
 
         # Online message
         self.get_logger().info("Path Planning Online")
@@ -126,7 +129,7 @@ class NaviPathPlanning(Node):
             # Move forward very far lmao
             self.instructions.append(f"d{20}")
             # Aaaaand that's it, just those two things
-            self.get_logger().info(self.map.mapPrintout)
+            self.printMap()
 
         self.get_logger().info(f"Instructions: {self.instructions}")
         
@@ -139,7 +142,7 @@ class NaviPathPlanning(Node):
         # Update the map
         self.map.update_loc(dist, direc)
         self.map.add_obstacle(direc)
-        self.get_logger().info(self.map.mapPrintout)
+        self.printMap()
         
         # Create new instructions based on the current map
         self.instructions = []
@@ -317,7 +320,7 @@ class NaviPathPlanning(Node):
         # Update the map
         self.map.update_loc(dist, direc)
         self.map.add_fire()
-        self.get_logger().info(self.map.mapPrintout)
+        self.printMap()
 
         # Empty instruction set because the goal has been reached
         self.instructions = []
@@ -328,6 +331,13 @@ class NaviPathPlanning(Node):
         instructions = String()
         instructions.data = repr(self.instructions)
         self.instructions_pub.publish(instructions)
+        
+    def printMap(self):
+        for i in range(len(self.map.map[0])):
+            line = ""
+            for j in range(len(self.map.map)):
+                line += f"{self.map.map[j][i]:<2}"
+            self.get_logger().info(line)
 
 class Map(): # Class for a map
     def __init__(self, cols=50, rows=21, size = 100, debug=True):
@@ -355,7 +365,8 @@ class Map(): # Class for a map
         self.map_list = [[self.defaultMapVal for _ in range(2)] for _ in range(self.cols*self.rows)]
 
         # Obstacles & Padding
-        self.obstacles = [[0,0],[0,10],[10,10],[20,10],[self.cols-1,self.rows-1]] # list of obstacle locations
+        self.obstacles = []
+        # self.obstacles = [[0,0],[0,10],[10,10],[20,10],[self.cols-1,self.rows-1]] # list of obstacle locations
         self.draw_obstacles()
         self.draw_padding()
 
@@ -386,14 +397,15 @@ class Map(): # Class for a map
     def print_map(self): # Prints the map out
         if not self.debug:
             return
+        # self.mapPrintout = ""
         for i in range(len(self.map[0])):
-            line = ""
-            #print(f"{i:<2}: ", end="")
+            # line = ""
+            print(f"{i:<2}: ", end="")
             for j in range(len(self.map)):
-                line += f"{self.map[j][i]:<2}"
-                #print(f"{self.map[j][i]:<2}", end=" ")
-            self.mapPrintout += line + "\n"
-            #print()
+                # line += f"{self.map[j][i]:<2}"
+                print(f"{self.map[j][i]:<2}", end=" ")
+            # self.mapPrintout += line + "\n"
+            print()
 
     # Functions specifically for initial map generation
     def redraw_map(self):
@@ -413,14 +425,14 @@ class Map(): # Class for a map
     
     def draw_padding(self): # Pads a square of value self.padding around each obstacle
         for obs in self.obstacles:
-            x = obs[0]-1
-            y = obs[1]-1
-            for i in range(3):
-                for j in range(3):
+            x = obs[0]-2
+            y = obs[1]-2
+            for i in range(5):
+                for j in range(5):
                     if (x >= 0 and y >= 0 and x < self.cols and y < self.rows and self.map[x][y] == 0):
                         self.map[x][y] = self.padding
                     y += 1
-                y = obs[1]-1
+                y = obs[1]-2
                 x += 1
 
     def draw_searched_locs(self):

@@ -67,6 +67,9 @@ class NaviMovement(Node):
         # Publisher to Path Planning
         self.path_planning_pub = self.create_publisher(String, 'path_planning', 10)
         
+        # Publisher to Run State
+        self.run_state_pub = self.create_publisher(Int64, 'run_state', 10)
+        
         # Subscribe to necessary topics
         self.navi_l_encoder_ = self.create_subscription(Int64, 'l_encoder', self.encoder_left_callback, 10)
         self.navi_r_encoder_ = self.create_subscription(Int64, 'r_encoder', self.encoder_right_callback, 10)
@@ -162,7 +165,7 @@ class NaviMovement(Node):
                     elif (angle == 270): # north
                         self.direc = 1
             elif i[0] == "a": # Heading angle for challenge 2, passed from the path planning file
-                self.east= float(i.strip("t"))
+                self.east= float(i.strip("a"))
                 self.done = True
 
             # Set starting encoder values
@@ -245,6 +248,7 @@ class NaviMovement(Node):
             cmd.linear.z = 0.0
             self.navi_pub_.publish(cmd)
             
+            traveled_dist = 0
             path_state = String()
             if self.turn:
                 traveled_dist = 0
@@ -255,6 +259,12 @@ class NaviMovement(Node):
             data = [1, traveled_dist, self.direc] # Sending 1 (obstacle state) and distance traveled to the path planning module
             path_state.data = repr(data)
             self.path_planning_pub.publish(path_state)
+            
+            time.sleep(3)
+            
+            state = Int64()
+            state.data = 1
+            self.run_state_pub.publish(state)
         
         elif self.run_state == 4: # Fire detected
             self.done = True
@@ -341,14 +351,17 @@ class NaviMovement(Node):
         self.get_logger().info(f"Right: {motor1_speed:.2f} | Left: {motor2_speed:.2f}")
 
     def update_control(self):
-        if (self.challenge == 1):
-            self.challenge1()
-        elif (self.challenge == 2):
-            self.challenge2()
-        elif (self.challenge == 3):
-            self.challenge3()
-        elif (self.challenge == 4):
-            self.challenge4()
+        if self.yaw is None:
+            return
+        if self.run_state == 1:
+            if (self.challenge == 1):
+                self.challenge1()
+            elif (self.challenge == 2):
+                self.challenge2()
+            elif (self.challenge == 3):
+                self.challenge3()
+            elif (self.challenge == 4):
+                self.challenge4()
 
     def challenge1(self):
         if self.run_state == 0 or self.yaw is None:
