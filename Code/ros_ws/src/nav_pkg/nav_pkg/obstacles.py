@@ -25,7 +25,7 @@ class NaviAvoidance(Node):
         self.curr_stopped = False
         self.fire_detected = False
         self.curr_dist = 0
-        self.min_dist = 80
+        self.min_dist = 100
         self.run_state = 0
 
         # Generate instruction set
@@ -50,13 +50,13 @@ class NaviAvoidance(Node):
 
             self.get_logger().info('OBSTACLE DETECTED, STOPPING & RECALIBRATING MAP')
         
-        elif self.curr_stopped and self.curr_dist > self.min_dist * 1.2:
+        elif self.curr_stopped and self.curr_dist > self.min_dist * 1.4:
             self.curr_stopped = False
 
     def color_callback(self, msg):
 #         self.get_logger().info('Received Message: %s' % msg.data)
         colorlist = eval(msg.data)
-        if (colorlist[0] > 4*((colorlist[1] + colorlist[2])/2) and not self.fire_detected):
+        if (colorlist[0] > 2.5*((colorlist[1] + colorlist[2])/2) and not self.fire_detected):
             self.get_logger().info('AAAAAAAAAAAAAAAAAA FIREEEEEEEEEEEEEEE')
             self.fire_detected = True
             

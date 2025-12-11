@@ -92,7 +92,7 @@ class NaviMovement(Node):
         #PID Controllers
         self.l_linear_pid = Piddles(0.25, 0.0, 0.05, name='l_linear', mod = 0.001)
         self.r_linear_pid = Piddles(0.25, 0.0, 0.05, name='r_linear', mod = 0.001)
-        self.angular_pid = Piddles(0.15, 0.0, 0.02, name='angular', mod = 0.04)
+        self.angular_pid = Piddles(0.30, 0.01, 0.05, name='angular', mod = 0.04)
         
         # Initial encoder values when executing an instruction
         self.l_start_encoderval = 0.0
@@ -149,6 +149,7 @@ class NaviMovement(Node):
                 if (zeroing_angle < 0):
                     zeroing_angle += 360
                 self.temp_turn_to_angle = zeroing_angle
+                self.get_logger().info(f"temp_angle: {self.temp_turn_to_angle}")
 
                 self.turn = True
                 self.move_dist = False
@@ -190,12 +191,15 @@ class NaviMovement(Node):
         self.encoder_right = msg.data
 
     def imu_callback(self, msg):
+        angle = msg.data - self.zero_to_angle
         if self.turn:
-            angle = msg.data - self.temp_turn_to_angle
-        else:
-            angle = msg.data - self.zero_to_angle
+            angle -= self.temp_turn_to_angle
+            self.get_logger().info(f"TURNING: curr angle: {angle}")
+
         if (angle < 0):
             angle += 360
+        elif (angle >= 360):
+            angle -= 360
 
         self.yaw = angle
         self.true_yaw = msg.data
@@ -332,11 +336,11 @@ class NaviMovement(Node):
 
             # Convert to left and right motor speeds
             if (self.move_dist):
-                motor1_speed = max(min(r_linear_output, 1.0), -1.0) * 0.95 - angular_output * 0.1
-                motor2_speed = max(min(l_linear_output, 1.0), -1.0) * 0.95 + angular_output * 0.1
+                motor1_speed = max(min(r_linear_output, 1.0), -1.0) * 0.85 - angular_output * 0.2
+                motor2_speed = max(min(l_linear_output, 1.0), -1.0) * 0.85 + angular_output * 0.2
             elif (self.turn):
-                motor1_speed = max(min(-angular_output, 1.0), -1.0) * 0.5
-                motor2_speed = max(min(angular_output, 1.0), -1.0) * 0.5
+                motor1_speed = max(min(-angular_output, 1.0), -1.0) * 1
+                motor2_speed = max(min(angular_output, 1.0), -1.0) * 1
 
         # Clip to [-1, 1]
         motor1_speed = max(min(motor1_speed, 1.0), -1.0)

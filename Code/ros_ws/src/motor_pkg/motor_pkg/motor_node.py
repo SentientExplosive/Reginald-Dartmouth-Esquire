@@ -48,7 +48,7 @@ class DualMotorController(Node):
             self.motor2slp.off()
   
     def motor_command_callback(self, msg):
-        # Motor 1
+        # Motor 1 (right)
         self.pwm_pin_motor1.value = abs(msg.linear.x) # X value in message data represents motor 1
         # self.get_logger().info(f"Speed_a={self.pwm_pin_motor1.value}") # Debug output message
         
@@ -67,11 +67,13 @@ class DualMotorController(Node):
         # Set direction based on whether the value for motor 1 in msg is positive or negative
         if msg.linear.x > 0:
             self.dir_pin_motor1.on()  # Forward
+            self.get_logger().info("Going forwardo 1")
         else:
             self.dir_pin_motor1.off() # Reverse
+            self.get_logger().info("Going backwardo 1")
 
 
-        # Motor 2
+        # Motor 2 (left)
         self.pwm_pin_motor2.value = abs(msg.linear.z)
         # self.get_logger().info(f"Min: {min(self.pwm_pin_motor2.value, 1.0)}") # Debug output message
         # self.get_logger().info(f"Max of min: {max(min(self.pwm_pin_motor2.value, 1.0), -1.0)}") # Debug output message
@@ -91,8 +93,10 @@ class DualMotorController(Node):
         # Set direction based on whether the value for motor 2 in msg is positive or negative
         if msg.linear.z > 0:
             self.dir_pin_motor2.on()  # Forward
+            self.get_logger().info("Going forwardo 2")
         else:
             self.dir_pin_motor2.off() # Reverse
+            self.get_logger().info("Going backwardo 2")
         
         # Output the speeds the motors were set to
         self.get_logger().info(f"\nMotor 1 Command: Speed={self.pwm_pin_motor1.value}\nMotor 2 Command: Speed={self.pwm_pin_motor2.value}")

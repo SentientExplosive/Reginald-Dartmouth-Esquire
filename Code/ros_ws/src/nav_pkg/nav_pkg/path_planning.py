@@ -73,7 +73,7 @@ class NaviPathPlanning(Node):
         self.map = Map(debug=False)
 
         # Given heading
-        self.heading = 307.5
+        self.heading = 308
 
         # Generate initial instructions
         self.generate_instructions()
@@ -151,18 +151,20 @@ class NaviPathPlanning(Node):
         loc = self.map.curr_loc
         mapval = self.map.map[loc[0]][loc[1]]
         prevDirec = direc
+        self.get_logger().info(f"prevDirec: {prevDirec}")
         while (mapval != 1):
+            self.get_logger().info(f"Instructions: {self.instructions}")
+            self.get_logger().info(f"prevDirec: {prevDirec}")
+            self.get_logger().info(f"Location: {loc}")
+            self.get_logger().info(f"Val @ Loc: {self.map.map[loc[0]][loc[1]]}")
             moveBackwards = 1
             if (self.map.map[loc[0]+1][loc[1]] < mapval): # Search East
                 # Turn if there's a change in direction
                 if (prevDirec != 0):
-                    turnAngle = 360 - 90*prevDirec + self.heading
+                    turnAngle = self.heading
                     if (turnAngle >= 360):
                         turnAngle -= 360
-                    if ((360 - 90*prevDirec) == 180):
-                        moveBackwards = -1
-                    else:
-                        self.instructions.append(f"t{turnAngle}")
+                    self.instructions.append(f"t{turnAngle}")
                     prevDirec = 0
                 
                 # Change mapval & loc
@@ -186,13 +188,10 @@ class NaviPathPlanning(Node):
             elif (self.map.map[loc[0]][loc[1]+1] < mapval): # Search South
                 # Turn if there's a change in direction
                 if (prevDirec != 3):
-                    turnAngle = 360 - 90*prevDirec + self.heading
+                    turnAngle = 90 + self.heading
                     if (turnAngle >= 360):
                         turnAngle -= 360
-                    if ((360 - 90*prevDirec) == 180):
-                        moveBackwards = -1
-                    else:
-                        self.instructions.append(f"t{turnAngle}")
+                    self.instructions.append(f"t{turnAngle}")
                     prevDirec = 3
                 
                 # Change mapval & loc
@@ -216,13 +215,10 @@ class NaviPathPlanning(Node):
             elif (self.map.map[loc[0]-1][loc[1]] < mapval): # Search West
                 # Turn if there's a change in direction
                 if (prevDirec != 2):
-                    turnAngle = 360 - 90*prevDirec + self.heading
+                    turnAngle = 180 + self.heading
                     if (turnAngle >= 360):
                         turnAngle -= 360
-                    if ((360 - 90*prevDirec) == 180):
-                        moveBackwards = -1
-                    else:
-                        self.instructions.append(f"t{turnAngle}")
+                    self.instructions.append(f"t{turnAngle}")
                     prevDirec = 2
                 
                 # Change mapval & loc
@@ -246,13 +242,10 @@ class NaviPathPlanning(Node):
             elif (self.map.map[loc[0]][loc[1]-1] < mapval): # Search North
                 # Turn if there's a change in direction
                 if (prevDirec != 1):
-                    turnAngle = 360 - 90*prevDirec + self.heading
+                    turnAngle = 270 + self.heading
                     if (turnAngle >= 360):
                         turnAngle -= 360
-                    if ((360 - 90*prevDirec) == 180):
-                        moveBackwards = -1
-                    else:
-                        self.instructions.append(f"t{turnAngle}")
+                    self.instructions.append(f"t{turnAngle}")
                     prevDirec = 1
                 
                 # Change mapval & loc
@@ -272,6 +265,18 @@ class NaviPathPlanning(Node):
                 # Add instruction 
                 dist = 0.1 * count
                 self.instructions.append(f"d{dist*moveBackwards}")
+            elif (self.map.map[loc[0]][loc[1]] == self.map.padding or self.map.map[loc[0]][loc[1]] == self.map.obstacle):
+                moveBackwards = -1
+                dist = 0.1 * 2
+                self.instructions.append(f"d{dist*moveBackwards}")
+                if prevDirec == 0:		# Facing East
+                    loc = [loc[0]-2,loc[1]]
+                elif prevDirec == 1:	# Facing North
+                    loc = [loc[0],loc[1]+2]
+                elif prevDirec == 2:	# Facing West
+                    loc = [loc[0]+2,loc[1]]
+                elif prevDirec == 3:	# Facing South
+                    loc = [loc[0],loc[1]-2]
 
         # Once back on the line, check for 1s in the west direction & move west if there are any
         if self.map.map[loc[0]-1][loc[1]] == 1:
@@ -426,13 +431,13 @@ class Map(): # Class for a map
     def draw_padding(self): # Pads a square of value self.padding around each obstacle
         for obs in self.obstacles:
             x = obs[0]-2
-            y = obs[1]-2
+            y = obs[1]-3
             for i in range(5):
-                for j in range(5):
+                for j in range(7):
                     if (x >= 0 and y >= 0 and x < self.cols and y < self.rows and self.map[x][y] == 0):
                         self.map[x][y] = self.padding
                     y += 1
-                y = obs[1]-2
+                y = obs[1]-3
                 x += 1
 
     def draw_searched_locs(self):
