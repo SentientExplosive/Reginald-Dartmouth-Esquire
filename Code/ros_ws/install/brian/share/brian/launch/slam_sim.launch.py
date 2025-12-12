@@ -8,9 +8,11 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     #Setup RViz2 directory
     rviz_config_dir = os.path.join(
-        get_package_share_directory('sllidar_ros2'),
+        get_package_share_directory('brian'),
         'rviz',
-        'sllidar_ros2.rviz')
+        'slam_sim.rviz')
+    print(f"RViz file found: {rviz_config_dir}")
+        
         
     return LaunchDescription([
         #Sllidar 
@@ -50,7 +52,7 @@ def generate_launch_description():
             package='teleop_twist_keyboard',
             executable='teleop_twist_keyboard',
             name='teleop_twist_keyboard',
-            prefix='xterm -e'
+            output='screen'
         ),
         
         #RViz2
